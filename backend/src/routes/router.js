@@ -4,7 +4,7 @@ import { signup } from '../controllers/auth/signup.js';
 import { publicUser } from '../controllers/auth/auth.helpers.js';
 import { User } from '../models/users.js';
 import { authenticate } from '../middleware/auth.js';
-import { createStudentId } from '../controllers/auth/auth.helpers.js';
+import { previewStudentId } from '../controllers/auth/auth.helpers.js';
 
 export const router = Router();
 
@@ -15,7 +15,7 @@ router.get('/health', (_request, response) => {
 router.post('/login', login);
 router.post('/signup', signup);
 router.get('/student-id', async (_request, response) => {
-  response.json({ success: true, data: { studentId: await createStudentId() } });
+  response.json({ success: true, data: { studentId: await previewStudentId() } });
 });
 
 router.get('/me', authenticate, async (request, response) => {

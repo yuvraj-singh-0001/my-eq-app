@@ -27,7 +27,7 @@ export async function signup(request, response) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, config.bcryptRounds);
-  const studentId = data.studentId ?? await createStudentId();
+  const studentId = await createStudentId();
   const user = await User.create({
     ...data,
     email,

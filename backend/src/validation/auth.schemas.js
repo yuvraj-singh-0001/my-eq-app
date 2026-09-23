@@ -12,7 +12,6 @@ const passwordSchema = z.string()
   .regex(/[^A-Za-z0-9]/, 'Password must include a special character');
 
 export const signupSchema = z.object({
-  studentId: z.string().regex(/^AFCD2CD\d{6}$/, 'Invalid Student ID').optional(),
   fullName: z.string().trim().min(1, 'Student name is required').max(100),
   email: emailSchema,
   mobileNumber: mobileSchema,

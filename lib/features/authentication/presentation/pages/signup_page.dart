@@ -42,7 +42,7 @@ class _SignupPageState extends State<SignupPage> {
 
   Future<void> _loadStudentId() async {
     try {
-      final studentId = await AuthApi.reserveStudentId();
+      final studentId = await AuthApi.previewStudentId();
       if (mounted) setState(() => _studentId = studentId);
     } on AuthApiException catch (error) {
       if (mounted) {
@@ -91,12 +91,7 @@ class _SignupPageState extends State<SignupPage> {
     } else if (!_isSubmitting) {
       setState(() => _isSubmitting = true);
       try {
-        final studentId = _studentId;
-        if (studentId == null) {
-          throw const AuthApiException('Student ID is still being generated.');
-        }
         final result = await AuthApi.signup(
-          studentId: studentId,
           fullName: _fullNameController.text,
           email: _emailController.text,
           mobileNumber: _mobileController.text,

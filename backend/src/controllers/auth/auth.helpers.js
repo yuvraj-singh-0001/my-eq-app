@@ -29,6 +29,12 @@ export async function createStudentId() {
   return `AFCD2CD${String(counter.sequence).padStart(6, '0')}`;
 }
 
+export async function previewStudentId() {
+  const counter = await Counter.findById('studentId').select('sequence');
+  const nextSequence = (counter?.sequence ?? 0) + 1;
+  return `AFCD2CD${String(nextSequence).padStart(6, '0')}`;
+}
+
 export function publicUser(user) {
   return {
     id: user._id,

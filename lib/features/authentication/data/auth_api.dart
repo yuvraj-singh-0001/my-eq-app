@@ -23,7 +23,7 @@ class AuthApi {
     return 'http://127.0.0.1:4000/api';
   }
 
-  static Future<String> reserveStudentId() async {
+  static Future<String> previewStudentId() async {
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/auth/student-id'))
@@ -49,7 +49,6 @@ class AuthApi {
   }
 
   static Future<SignupResult> signup({
-    required String studentId,
     required String fullName,
     required String email,
     required String mobileNumber,
@@ -71,7 +70,6 @@ class AuthApi {
             Uri.parse('$_baseUrl/auth/signup'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'studentId': studentId,
               'fullName': fullName.trim(),
               'email': email.trim(),
               'mobileNumber': mobileNumber.trim(),
@@ -102,10 +100,10 @@ class AuthApi {
       }
 
       final user = body['data']?['user'];
-        final responseStudentId = user is Map<String, dynamic>
+      final responseStudentId = user is Map<String, dynamic>
           ? user['studentId'] as String?
           : null;
-        if (responseStudentId == null || responseStudentId.isEmpty) {
+      if (responseStudentId == null || responseStudentId.isEmpty) {
         throw const AuthApiException('Student ID could not be generated.');
       }
       return SignupResult(
