@@ -29,6 +29,15 @@ export async function createStudentId() {
   return `AFCD2CD${String(counter.sequence).padStart(6, '0')}`;
 }
 
+export async function createTeacherId() {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'teacherId' },
+    { $inc: { sequence: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+  return `AFD3T${String(counter.sequence).padStart(2, '0')}`;
+}
+
 export async function previewStudentId() {
   const counter = await Counter.findById('studentId').select('sequence');
   const nextSequence = (counter?.sequence ?? 0) + 1;
@@ -39,6 +48,7 @@ export function publicUser(user) {
   return {
     id: user._id,
     studentId: user.studentId,
+    teacherId: user.teacherId,
     fullName: user.fullName,
     email: user.email,
     mobileNumber: user.mobileNumber,
@@ -47,5 +57,7 @@ export function publicUser(user) {
     gender: user.gender,
     username: user.username,
     role: user.role,
+    schoolName: user.schoolName,
+    teachingSubject: user.teachingSubject,
   };
 }

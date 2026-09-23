@@ -11,10 +11,10 @@ class AuthApiException implements Exception {
 }
 
 class SignupResult {
-  const SignupResult({required this.message, required this.studentId});
+  const SignupResult({required this.message, required this.accountId});
 
   final String message;
-  final String studentId;
+  final String accountId;
 }
 
 class AuthApi {
@@ -23,20 +23,20 @@ class AuthApi {
     return 'http://127.0.0.1:4000/api';
   }
 
-  static Future<String> previewStudentId() async {
+  static Future<String> previewAccountId(String role) async {
     try {
       final response = await http
-          .get(Uri.parse('$_baseUrl/auth/student-id'))
+          .get(Uri.parse('$_baseUrl/auth/account-id?role=$role'))
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AuthApiException('Student ID could not be generated.');
       }
-      final studentId = body['data']?['studentId'] as String?;
-      if (studentId == null || studentId.isEmpty) {
+      final accountId = body['data']?['accountId'] as String?;
+      if (accountId == null || accountId.isEmpty) {
         throw const AuthApiException('Student ID could not be generated.');
       }
-      return studentId;
+      return accountId;
     } on AuthApiException {
       rethrow;
     } on SocketException {
@@ -49,10 +49,11 @@ class AuthApi {
   }
 
   static Future<SignupResult> signup({
+    required String role,
     required String fullName,
     required String email,
     required String mobileNumber,
-    required String className,
+    required String? className,
     required String? section,
     required String? gender,
     required String fatherName,
@@ -63,6 +64,8 @@ class AuthApi {
     required String motherMobileNumber,
     required String username,
     required String password,
+    required String schoolName,
+    required String teachingSubject,
   }) async {
     try {
       final response = await http
@@ -70,10 +73,13 @@ class AuthApi {
             Uri.parse('$_baseUrl/auth/signup'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
+              'role': role,
               'fullName': fullName.trim(),
               'email': email.trim(),
               'mobileNumber': mobileNumber.trim(),
               'className': className,
+              'schoolName': schoolName.trim(),
+              'teachingSubject': teachingSubject,
               'section': section,
               'gender': gender,
               'father': {
@@ -100,15 +106,16 @@ class AuthApi {
       }
 
       final user = body['data']?['user'];
-      final responseStudentId = user is Map<String, dynamic>
-          ? user['studentId'] as String?
+      final accountId = user is Map<String, dynamic>
+          ? (role == 'teacher' ? user['teacherId'] : user['studentId'])
+                as String?
           : null;
-      if (responseStudentId == null || responseStudentId.isEmpty) {
+      if (accountId == null || accountId.isEmpty) {
         throw const AuthApiException('Student ID could not be generated.');
       }
       return SignupResult(
         message: body['message'] as String? ?? 'Account created successfully.',
-        studentId: responseStudentId,
+        accountId: accountId,
       );
     } on AuthApiException {
       rethrow;

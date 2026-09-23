@@ -5,6 +5,7 @@ import { publicUser } from '../controllers/auth/auth.helpers.js';
 import { User } from '../models/users.js';
 import { authenticate } from '../middleware/auth.js';
 import { previewStudentId } from '../controllers/auth/auth.helpers.js';
+import { Counter } from '../models/counters.js';
 
 export const router = Router();
 
@@ -14,8 +15,17 @@ router.get('/health', (_request, response) => {
 
 router.post('/login', login);
 router.post('/signup', signup);
-router.get('/student-id', async (_request, response) => {
-  response.json({ success: true, data: { studentId: await previewStudentId() } });
+router.get('/account-id', async (request, response) => {
+  const role = request.query.role === 'teacher' ? 'teacher' : 'student';
+  if (role === 'teacher') {
+    const counter = await Counter.findById('teacherId').select('sequence');
+    const nextSequence = (counter?.sequence ?? 0) + 1;
+    return response.json({
+      success: true,
+      data: { accountId: `AFD3T${String(nextSequence).padStart(2, '0')}` },
+    });
+  }
+  return response.json({ success: true, data: { accountId: await previewStudentId() } });
 });
 
 router.get('/me', authenticate, async (request, response) => {

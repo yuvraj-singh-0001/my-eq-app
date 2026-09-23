@@ -23,8 +23,11 @@ class _SignupPageState extends State<SignupPage> {
   final _motherMobileController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _schoolNameController = TextEditingController();
+  final _teachingSubjectController = TextEditingController();
 
   int _step = 0;
+  String _role = 'student';
   String? _className;
   String? _section;
   String? _gender;
@@ -37,13 +40,13 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void initState() {
     super.initState();
-    _loadStudentId();
+    _loadAccountId();
   }
 
-  Future<void> _loadStudentId() async {
+  Future<void> _loadAccountId() async {
     try {
-      final studentId = await AuthApi.previewStudentId();
-      if (mounted) setState(() => _studentId = studentId);
+      final accountId = await AuthApi.previewAccountId(_role);
+      if (mounted) setState(() => _studentId = accountId);
     } on AuthApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -70,6 +73,8 @@ class _SignupPageState extends State<SignupPage> {
       _motherMobileController,
       _usernameController,
       _passwordController,
+      _schoolNameController,
+      _teachingSubjectController,
     ]) {
       controller.dispose();
     }
@@ -92,10 +97,11 @@ class _SignupPageState extends State<SignupPage> {
       setState(() => _isSubmitting = true);
       try {
         final result = await AuthApi.signup(
+          role: _role,
           fullName: _fullNameController.text,
           email: _emailController.text,
           mobileNumber: _mobileController.text,
-          className: _className!,
+          className: _className,
           section: _section,
           gender: _gender,
           fatherName: _fatherNameController.text,
@@ -106,15 +112,17 @@ class _SignupPageState extends State<SignupPage> {
           motherMobileNumber: _motherMobileController.text,
           username: _usernameController.text,
           password: _passwordController.text,
+          schoolName: _schoolNameController.text,
+          teachingSubject: _teachingSubjectController.text,
         );
         if (!mounted) return;
-        setState(() => _studentId = result.studentId);
+        setState(() => _studentId = result.accountId);
         await showDialog<void>(
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: const Text('Account created'),
             content: Text(
-              '${result.message}\n\nYour Student ID\n${result.studentId}',
+              '${result.message}\n\nYour ${_role == 'teacher' ? 'Teacher ID' : 'Student ID'}\n${result.accountId}',
               textAlign: TextAlign.center,
               style: const TextStyle(height: 1.5),
             ),
@@ -165,6 +173,7 @@ class _SignupPageState extends State<SignupPage> {
                     _SignupHeader(isCompact: isCompact, step: _step),
                     _SignupFormPanel(
                       step: _step,
+                      role: _role,
                       fullNameController: _fullNameController,
                       emailController: _emailController,
                       mobileController: _mobileController,
@@ -178,6 +187,8 @@ class _SignupPageState extends State<SignupPage> {
                       usernameError: _usernameError,
                       studentId: _studentId,
                       passwordController: _passwordController,
+                      schoolNameController: _schoolNameController,
+                      teachingSubjectController: _teachingSubjectController,
                       section: _section,
                       gender: _gender,
                       assignedTeacher: _assignedTeacher,
@@ -197,6 +208,14 @@ class _SignupPageState extends State<SignupPage> {
                       onUsernameErrorChanged: () =>
                           setState(() => _usernameError = null),
                       onNext: _goToNextStep,
+                      onRoleChanged: (role) {
+                        setState(() {
+                          _role = role;
+                          _studentId = null;
+                          _step = 0;
+                        });
+                        _loadAccountId();
+                      },
                     ),
                   ],
                 ),
@@ -387,6 +406,7 @@ class _ProgressLine extends StatelessWidget {
 class _SignupFormPanel extends StatelessWidget {
   const _SignupFormPanel({
     required this.step,
+    required this.role,
     required this.fullNameController,
     required this.emailController,
     required this.mobileController,
@@ -401,6 +421,8 @@ class _SignupFormPanel extends StatelessWidget {
     required this.usernameError,
     required this.studentId,
     required this.passwordController,
+    required this.schoolNameController,
+    required this.teachingSubjectController,
     required this.section,
     required this.gender,
     required this.assignedTeacher,
@@ -413,9 +435,11 @@ class _SignupFormPanel extends StatelessWidget {
     required this.onPasswordVisibilityChanged,
     required this.onUsernameErrorChanged,
     required this.onNext,
+    required this.onRoleChanged,
   });
 
   final int step;
+  final String role;
   final TextEditingController fullNameController;
   final TextEditingController emailController;
   final TextEditingController mobileController;
@@ -430,6 +454,8 @@ class _SignupFormPanel extends StatelessWidget {
   final String? usernameError;
   final String? studentId;
   final TextEditingController passwordController;
+  final TextEditingController schoolNameController;
+  final TextEditingController teachingSubjectController;
   final String? section;
   final String? gender;
   final String? assignedTeacher;
@@ -442,6 +468,7 @@ class _SignupFormPanel extends StatelessWidget {
   final VoidCallback onPasswordVisibilityChanged;
   final VoidCallback onUsernameErrorChanged;
   final VoidCallback onNext;
+  final ValueChanged<String> onRoleChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -463,15 +490,29 @@ class _SignupFormPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionTitle(
-            title: step == 0 ? 'Basic Information' : 'Family & Account Details',
+            title: role == 'teacher'
+                ? (step == 0 ? 'Teacher Information' : 'Teacher Account')
+                : (step == 0
+                      ? 'Basic Information'
+                      : 'Family & Account Details'),
             subtitle: step == 0
                 ? 'Tell us about yourself'
                 : 'Keep your account secure',
           ),
           const SizedBox(height: 18),
-          _StudentIdField(studentId: studentId),
+          _SignupRoleSelector(role: role, onChanged: onRoleChanged),
           const SizedBox(height: 14),
-          if (step == 0) ..._basicFields() else ..._accountFields(),
+          _StudentIdField(
+            studentId: studentId,
+            label: role == 'teacher' ? 'Teacher ID' : 'Student ID',
+          ),
+          const SizedBox(height: 14),
+          if (step == 0)
+            ..._basicFields()
+          else if (role == 'teacher')
+            ..._teacherFields()
+          else
+            ..._accountFields(),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -534,6 +575,7 @@ class _SignupFormPanel extends StatelessWidget {
   }
 
   List<Widget> _basicFields() {
+    if (role == 'teacher') return _teacherBasicFields();
     return [
       _SignupInput(
         label: 'Full Name',
@@ -606,6 +648,119 @@ class _SignupFormPanel extends StatelessWidget {
         enabled: false,
       ),
       const SizedBox(height: 10),
+    ];
+  }
+
+  List<Widget> _teacherBasicFields() {
+    return [
+      _SignupInput(
+        label: 'Full Name',
+        hint: 'Enter your full name',
+        controller: fullNameController,
+        icon: Icons.person_outline,
+        textCapitalization: TextCapitalization.words,
+        inputFormatters: const [_CapitalizeWordsFormatter()],
+        requiredField: true,
+        validator: _requiredValidator,
+      ),
+      const SizedBox(height: 12),
+      _SignupInput(
+        label: 'Gmail',
+        hint: 'Enter your Gmail address',
+        controller: emailController,
+        icon: Icons.mail_outline,
+        keyboardType: TextInputType.emailAddress,
+        requiredField: true,
+        validator: _emailValidator,
+      ),
+      const SizedBox(height: 12),
+      _SignupInput(
+        label: 'Mobile Number',
+        hint: 'Enter 10-digit mobile number',
+        controller: mobileController,
+        icon: Icons.phone_outlined,
+        prefixText: '+91 ',
+        keyboardType: TextInputType.phone,
+        maxLength: 10,
+        requiredField: true,
+        validator: _mobileValidator,
+      ),
+      const SizedBox(height: 12),
+      _SignupInput(
+        label: 'School Name',
+        hint: 'Enter your school name',
+        controller: schoolNameController,
+        icon: Icons.school_outlined,
+        textCapitalization: TextCapitalization.words,
+        inputFormatters: const [_CapitalizeWordsFormatter()],
+        requiredField: true,
+        validator: _requiredValidator,
+      ),
+      const SizedBox(height: 12),
+      _SignupDropdown(
+        label: 'Teaching Subject',
+        value: teachingSubjectController.text.isEmpty
+            ? null
+            : teachingSubjectController.text,
+        hint: 'Select your subject',
+        items: const [
+          'Mathematics',
+          'Science',
+          'English',
+          'Hindi',
+          'Social Science',
+          'Computer Science',
+          'Physics',
+          'Chemistry',
+          'Biology',
+          'History',
+          'Geography',
+          'Physical Education',
+        ],
+        onChanged: (value) {
+          teachingSubjectController.text = value ?? '';
+        },
+        icon: Icons.menu_book_outlined,
+        requiredField: true,
+      ),
+    ];
+  }
+
+  List<Widget> _teacherFields() {
+    return [
+      const _FormGroupLabel('Your Account'),
+      _SignupInput(
+        label: 'Username',
+        hint: 'Create your username',
+        controller: usernameController,
+        icon: Icons.alternate_email,
+        requiredField: true,
+        errorText: usernameError,
+        onChanged: (_) {
+          if (usernameError != null) onUsernameErrorChanged();
+        },
+        validator: _usernameValidator,
+      ),
+      const SizedBox(height: 10),
+      _SignupInput(
+        label: 'Password',
+        hint: 'Create a strong password',
+        controller: passwordController,
+        icon: Icons.lock_outline,
+        obscureText: obscurePassword,
+        suffixIcon: IconButton(
+          onPressed: onPasswordVisibilityChanged,
+          icon: Icon(
+            obscurePassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+          ),
+        ),
+        requiredField: true,
+        validator: _passwordValidator,
+      ),
+      const SizedBox(height: 8),
+      _PasswordRequirements(controller: passwordController),
     ];
   }
 
@@ -822,18 +977,87 @@ class _FormGroupLabel extends StatelessWidget {
   );
 }
 
+class _SignupRoleSelector extends StatelessWidget {
+  const _SignupRoleSelector({required this.role, required this.onChanged});
+
+  final String role;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _SignupRoleButton(
+            label: 'Student',
+            icon: Icons.school_outlined,
+            selected: role == 'student',
+            onPressed: () => onChanged('student'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SignupRoleButton(
+            label: 'Teacher',
+            icon: Icons.groups_outlined,
+            selected: role == 'teacher',
+            onPressed: () => onChanged('teacher'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SignupRoleButton extends StatelessWidget {
+  const _SignupRoleButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: TextButton.styleFrom(
+          backgroundColor: selected
+              ? const Color(0xFF18A77F)
+              : const Color(0xFFF1F4F9),
+          foregroundColor: selected ? Colors.white : const Color(0xFF657189),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
 class _StudentIdField extends StatelessWidget {
-  const _StudentIdField({required this.studentId});
+  const _StudentIdField({required this.studentId, required this.label});
 
   final String? studentId;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Student ID',
+        Text(
+          label,
           style: TextStyle(
             color: Color(0xFF1D2D4A),
             fontSize: 11,
