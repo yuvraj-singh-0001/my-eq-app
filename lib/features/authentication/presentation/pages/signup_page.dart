@@ -170,7 +170,11 @@ class _SignupPageState extends State<SignupPage> {
                 ),
                 child: Column(
                   children: [
-                    _SignupHeader(isCompact: isCompact, step: _step),
+                    _SignupHeader(
+                      isCompact: isCompact,
+                      step: _step,
+                      role: _role,
+                    ),
                     _SignupFormPanel(
                       step: _step,
                       role: _role,
@@ -229,10 +233,15 @@ class _SignupPageState extends State<SignupPage> {
 }
 
 class _SignupHeader extends StatelessWidget {
-  const _SignupHeader({required this.isCompact, required this.step});
+  const _SignupHeader({
+    required this.isCompact,
+    required this.step,
+    required this.role,
+  });
 
   final bool isCompact;
   final int step;
+  final String role;
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +276,9 @@ class _SignupHeader extends StatelessWidget {
             left: 24,
             top: isCompact ? 132 : 145,
             child: Text(
-              step == 0 ? 'Create Your\nAccount' : 'Family &\nAccount',
+              role == 'teacher'
+                  ? (step == 0 ? 'Join as a\nTeacher' : 'Teacher\nAccount')
+                  : (step == 0 ? 'Create Your\nAccount' : 'Family &\nAccount'),
               style: const TextStyle(
                 color: Color(0xFF10234B),
                 fontSize: 30,
@@ -281,8 +292,12 @@ class _SignupHeader extends StatelessWidget {
             top: isCompact ? 202 : 215,
             child: Text(
               step == 0
-                  ? "Let's get to know you better\nso we can support your journey."
-                  : 'Add family details and secure\nyour MyEQ App account.',
+                  ? (role == 'teacher'
+                    ? 'Share your details and\nstart teaching with MyEQ.'
+                    : "Let's get to know you better\nso we can support your journey.")
+                  : (role == 'teacher'
+                    ? 'Create your secure teacher\naccount to continue.'
+                    : 'Add family details and secure\nyour MyEQ App account.'),
               style: const TextStyle(
                 color: Color(0xFF627087),
                 fontSize: 12,
@@ -293,9 +308,13 @@ class _SignupHeader extends StatelessWidget {
           Positioned(
             right: -18,
             bottom: -45,
-            width: isCompact ? 225 : 270,
+            width: role == 'teacher'
+                ? (isCompact ? 205 : 245)
+                : (isCompact ? 225 : 270),
             child: Image.asset(
-              'lib/assets/images/sign-up-image.png',
+              role == 'teacher'
+                  ? 'lib/assets/images/teachers-singup.png'
+                  : 'lib/assets/images/sign-up-image.png',
               cacheWidth: 650,
               fit: BoxFit.contain,
             ),
