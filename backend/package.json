@@ -1,0 +1,25 @@
+{
+  "name": "myeq-app-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "check": "node --check server.js && node --check src/config/config.js && node --check src/config/db.js && node --check src/models/users.js && node --check src/models/counters.js && node --check src/validation/auth.schemas.js && node --check src/controllers/auth/auth.helpers.js && node --check src/controllers/auth/login.js && node --check src/controllers/auth/signup.js && node --check src/middleware/auth.js && node --check src/routes/router.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.2",
+    "zod": "^4.1.8"
+  }
+}
