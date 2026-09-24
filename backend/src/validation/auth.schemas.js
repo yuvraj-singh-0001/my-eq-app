@@ -13,7 +13,7 @@ const passwordSchema = z.string()
 
 export const signupSchema = z.object({
   role: z.enum(['student', 'teacher']).default('student'),
-  fullName: z.string().trim().min(1, 'Student name is required').max(100),
+  fullName: z.string().trim().min(1, 'Full name is required').max(100),
   email: emailSchema,
   mobileNumber: mobileSchema,
   className: z.enum(['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5']).optional().nullable(),
@@ -48,4 +48,5 @@ export const signupSchema = z.object({
 export const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Email, mobile number, or username is required'),
   password: z.string().min(1, 'Password is required'),
+  role: z.enum(['student', 'teacher', 'parent', 'admin']).optional(),
 });

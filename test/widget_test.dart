@@ -35,7 +35,7 @@ void main() {
     expect(find.text('Student'), findsOneWidget);
   });
 
-  testWidgets('Create Account opens the signup page', (WidgetTester tester) async {
+  testWidgets('Create Account opens the signup page and switches roles', (WidgetTester tester) async {
     await tester.pumpWidget(const Application());
     await tester.tap(find.text("Let's Get Started"));
     await tester.pumpAndSettle();
@@ -46,5 +46,13 @@ void main() {
 
     expect(find.byType(SignupPage), findsOneWidget);
     expect(find.text('Create Your\nAccount'), findsOneWidget);
+
+    // Tap Teacher Role
+    final teacherRole = find.text('Teacher').last;
+    await tester.ensureVisible(teacherRole);
+    await tester.tap(teacherRole);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Join as a\nTeacher'), findsOneWidget);
   });
 }

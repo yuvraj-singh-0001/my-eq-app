@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
 import 'signup_page.dart';
 
@@ -19,6 +20,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = true;
   bool _obscurePassword = true;
   bool _isSubmitting = false;
+  bool _hasLoginError = false;
+  String _errorMessage = '';
   int _selectedRole = 0;
 
   @override
@@ -30,6 +33,15 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  void _clearLoginError() {
+    if (_hasLoginError) {
+      setState(() {
+        _hasLoginError = false;
+        _errorMessage = '';
+      });
+    }
+  }
+
   Future<void> _submitLogin() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -37,28 +49,32 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _hasLoginError = false;
+      _errorMessage = '';
+    });
+    final roleString = _selectedRole == 1
+        ? 'teacher'
+        : (_selectedRole == 2 ? 'parent' : 'student');
     try {
-      final name = await AuthApi.login(
+      final result = await AuthApi.login(
         identifier: _emailController.text,
         password: _passwordController.text,
+        role: roleString,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Aapne apna account successfully bana liya hai. Welcome back, $name.',
-          ),
-        ),
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => _LoginSuccessDialog(result: result),
       );
     } on AuthApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      setState(() {
+        _hasLoginError = true;
+        _errorMessage = error.message;
+      });
+      showTopErrorNotification(context, error.message);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -127,8 +143,13 @@ class _LoginPageState extends State<LoginPage> {
                     isSubmitting: _isSubmitting,
                     rememberMe: _rememberMe,
                     selectedRole: _selectedRole,
-                    onRoleChanged: (role) =>
-                        setState(() => _selectedRole = role),
+                    hasLoginError: _hasLoginError,
+                    errorMessage: _errorMessage,
+                    onInputChanged: _clearLoginError,
+                    onRoleChanged: (role) {
+                      _clearLoginError();
+                      setState(() => _selectedRole = role);
+                    },
                     onRememberChanged: (value) =>
                         setState(() => _rememberMe = value ?? false),
                     onPasswordVisibilityChanged: () =>
@@ -263,6 +284,9 @@ class _LoginFormPanel extends StatelessWidget {
     required this.isSubmitting,
     required this.rememberMe,
     required this.selectedRole,
+    required this.hasLoginError,
+    required this.errorMessage,
+    required this.onInputChanged,
     required this.onRoleChanged,
     required this.onRememberChanged,
     required this.onPasswordVisibilityChanged,
@@ -278,6 +302,9 @@ class _LoginFormPanel extends StatelessWidget {
   final bool isSubmitting;
   final bool rememberMe;
   final int selectedRole;
+  final bool hasLoginError;
+  final String errorMessage;
+  final VoidCallback onInputChanged;
   final ValueChanged<int> onRoleChanged;
   final ValueChanged<bool?> onRememberChanged;
   final VoidCallback onPasswordVisibilityChanged;
@@ -285,6 +312,22 @@ class _LoginFormPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldLabel = selectedRole == 1
+        ? 'Teacher ID, Username, Email, or Mobile'
+        : (selectedRole == 0
+            ? 'Student ID, Username, Email, or Mobile'
+            : 'Mobile Number or Email');
+
+    final hintText = selectedRole == 1
+        ? 'Enter Teacher ID, email, or mobile'
+        : (selectedRole == 0
+            ? 'Enter Student ID, email, or mobile'
+            : 'Enter mobile number or email');
+
+    final prefixIcon = selectedRole == 1
+        ? Icons.badge_outlined
+        : (selectedRole == 0 ? Icons.school_outlined : Icons.phone_outlined);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 10),
@@ -306,18 +349,20 @@ class _LoginFormPanel extends StatelessWidget {
           children: [
             _RoleSelector(selectedRole: selectedRole, onChanged: onRoleChanged),
             const SizedBox(height: 20),
-            const Text('Email or Mobile Number', style: _FieldLabelStyle.value),
+            Text(fieldLabel, style: _FieldLabelStyle.value),
             const SizedBox(height: 7),
             _InputField(
               controller: emailController,
               focusNode: emailFocusNode,
-              hintText: 'Enter your email or mobile number',
-              prefixIcon: Icons.mail_outline,
-              keyboardType: TextInputType.phone,
+              hintText: hintText,
+              prefixIcon: prefixIcon,
+              keyboardType: TextInputType.text,
               textInputAction: TextInputAction.next,
+              hasError: hasLoginError,
+              onChanged: (_) => onInputChanged(),
               onSubmitted: (_) => passwordFocusNode.requestFocus(),
               validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Enter your email or mobile number'
+                  ? 'Please enter your login credential'
                   : null,
             ),
             const SizedBox(height: 16),
@@ -350,6 +395,8 @@ class _LoginFormPanel extends StatelessWidget {
               hintText: 'Enter your password',
               prefixIcon: Icons.lock_outline,
               obscureText: obscurePassword,
+              hasError: hasLoginError,
+              onChanged: (_) => onInputChanged(),
               suffixIcon: IconButton(
                 onPressed: onPasswordVisibilityChanged,
                 icon: Icon(
@@ -364,6 +411,29 @@ class _LoginFormPanel extends StatelessWidget {
               validator: (value) =>
                   value == null || value.isEmpty ? 'Enter your password' : null,
             ),
+            if (hasLoginError && errorMessage.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 14,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      errorMessage,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -548,6 +618,8 @@ class _InputField extends StatelessWidget {
     this.validator,
     this.obscureText = false,
     this.suffixIcon,
+    this.hasError = false,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -560,6 +632,8 @@ class _InputField extends StatelessWidget {
   final String? Function(String?)? validator;
   final bool obscureText;
   final Widget? suffixIcon;
+  final bool hasError;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -569,28 +643,42 @@ class _InputField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onFieldSubmitted: onSubmitted,
+      onChanged: onChanged,
       validator: validator,
       obscureText: obscureText,
       style: const TextStyle(fontSize: 13, color: Color(0xFF1D2D4A)),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8994A8)),
-        prefixIcon: Icon(prefixIcon, size: 20, color: const Color(0xFF6D7B92)),
+        prefixIcon: Icon(
+          prefixIcon,
+          size: 20,
+          color: hasError ? Colors.redAccent : const Color(0xFF6D7B92),
+        ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: const Color(0xFFF8F9FC),
+        fillColor: hasError ? const Color(0xFFFFF5F5) : const Color(0xFFF8F9FC),
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
+          borderSide: BorderSide(
+            color: hasError ? Colors.redAccent : const Color(0xFFE1E6EF),
+            width: hasError ? 1.5 : 1.0,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
+          borderSide: BorderSide(
+            color: hasError ? Colors.redAccent : const Color(0xFFE1E6EF),
+            width: hasError ? 1.5 : 1.0,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFF18A77F), width: 1.5),
+          borderSide: BorderSide(
+            color: hasError ? Colors.redAccent : const Color(0xFF18A77F),
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -656,4 +744,157 @@ abstract final class _FieldLabelStyle {
     fontSize: 12,
     fontWeight: FontWeight.w600,
   );
+}
+
+class _LoginSuccessDialog extends StatelessWidget {
+  const _LoginSuccessDialog({required this.result});
+
+  final LoginResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final isTeacher = result.role == 'teacher';
+    final roleLabel = isTeacher
+        ? 'Teacher'
+        : (result.role == 'parent' ? 'Parent' : 'Student');
+    final accountId = result.teacherId ?? result.studentId;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 8,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2F7F0),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF18A77F).withAlpha(51),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF149B78),
+                size: 42,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Welcome Back!',
+              style: TextStyle(
+                color: Color(0xFF10234B),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              result.fullName,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF149B78),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F4F9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isTeacher ? Icons.groups_outlined : Icons.school_outlined,
+                    size: 16,
+                    color: const Color(0xFF53647C),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Logged in as $roleLabel',
+                    style: const TextStyle(
+                      color: Color(0xFF53647C),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (accountId != null && accountId.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE1E6EF)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${isTeacher ? "Teacher ID" : "Student ID"}: ',
+                      style: const TextStyle(
+                        color: Color(0xFF657189),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      accountId,
+                      style: const TextStyle(
+                        color: Color(0xFF10234B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF18A77F),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue to Dashboard'),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

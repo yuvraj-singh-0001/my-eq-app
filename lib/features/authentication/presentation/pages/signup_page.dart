@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
 
 class SignupPage extends StatefulWidget {
@@ -119,19 +120,12 @@ class _SignupPageState extends State<SignupPage> {
         setState(() => _studentId = result.accountId);
         await showDialog<void>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Account created'),
-            content: Text(
-              '${result.message}\n\nYour ${_role == 'teacher' ? 'Teacher ID' : 'Student ID'}\n${result.accountId}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Continue'),
-              ),
-            ],
+          barrierDismissible: false,
+          builder: (dialogContext) => _AccountCreatedDialog(
+            role: _role,
+            fullName: _fullNameController.text,
+            accountId: result.accountId,
+            message: result.message,
           ),
         );
       } on AuthApiException catch (error) {
@@ -139,12 +133,7 @@ class _SignupPageState extends State<SignupPage> {
         if (error.message.toLowerCase().contains('username')) {
           setState(() => _usernameError = error.message);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.message),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          showTopErrorNotification(context, error.message);
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
@@ -270,7 +259,7 @@ class _SignupHeader extends StatelessWidget {
             left: 30,
             top: 82,
             right: 30,
-            child: _ProgressIndicator(step: step),
+            child: _ProgressIndicator(step: step, role: role),
           ),
           Positioned(
             left: 24,
@@ -358,17 +347,21 @@ class _SignupBrand extends StatelessWidget {
 }
 
 class _ProgressIndicator extends StatelessWidget {
-  const _ProgressIndicator({required this.step});
+  const _ProgressIndicator({required this.step, required this.role});
 
   final int step;
+  final String role;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ProgressDot(active: true, label: 'Basic Info'),
+        const _ProgressDot(active: true, label: 'Basic Info'),
         Expanded(child: _ProgressLine(active: step > 0)),
-        _ProgressDot(active: step > 0, label: 'Family Details'),
+        _ProgressDot(
+          active: step > 0,
+          label: role == 'teacher' ? 'Account Details' : 'Family Details',
+        ),
         Expanded(child: _ProgressLine(active: false)),
         const _ProgressDot(active: false, label: 'Complete'),
       ],
@@ -1077,7 +1070,7 @@ class _StudentIdField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: Color(0xFF1D2D4A),
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -1089,7 +1082,7 @@ class _StudentIdField extends StatelessWidget {
           readOnly: true,
           initialValue: studentId,
           decoration: InputDecoration(
-            hintText: 'Generating your Student ID...',
+            hintText: 'Generating $label...',
             hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF8994A8)),
             prefixIcon: const Icon(
               Icons.badge_outlined,
@@ -1119,6 +1112,215 @@ class _StudentIdField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AccountCreatedDialog extends StatelessWidget {
+  const _AccountCreatedDialog({
+    required this.role,
+    required this.fullName,
+    required this.accountId,
+    required this.message,
+  });
+
+  final String role;
+  final String fullName;
+  final String accountId;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isTeacher = role == 'teacher';
+    final roleTitle = isTeacher ? 'Teacher' : 'Student';
+    final idTitle = isTeacher ? 'TEACHER ID' : 'STUDENT ID';
+    final themeColor = isTeacher ? const Color(0xFF0F8A6B) : const Color(0xFF149B78);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 8,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2F7F0),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: themeColor.withAlpha(51),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.check_circle_rounded,
+                color: themeColor,
+                size: 46,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              '$roleTitle Account Created!',
+              style: const TextStyle(
+                color: Color(0xFF10234B),
+                fontSize: 21,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Welcome, $fullName',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF53647C),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEBF7F3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isTeacher ? Icons.groups_outlined : Icons.school_outlined,
+                    size: 15,
+                    color: themeColor,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$roleTitle Account',
+                    style: TextStyle(
+                      color: themeColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1FAF7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFBCEBDD)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isTeacher
+                            ? Icons.badge_outlined
+                            : Icons.credit_card_outlined,
+                        size: 16,
+                        color: themeColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'YOUR OFFICIAL $idTitle',
+                        style: TextStyle(
+                          color: themeColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    accountId,
+                    style: const TextStyle(
+                      color: Color(0xFF10234B),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 36,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: accountId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$roleTitle ID copied to clipboard!'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy ID'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: themeColor,
+                        side: BorderSide(color: themeColor),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Save your $idTitle. You can use it to log in anytime.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF7A879A),
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close dialog
+                  Navigator.of(context).pop(); // Return to Login page
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF18A77F),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Proceed to Sign In'),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -17,6 +17,24 @@ class SignupResult {
   final String accountId;
 }
 
+class LoginResult {
+  const LoginResult({
+    required this.fullName,
+    required this.role,
+    this.teacherId,
+    this.studentId,
+    this.email,
+    this.username,
+  });
+
+  final String fullName;
+  final String role;
+  final String? teacherId;
+  final String? studentId;
+  final String? email;
+  final String? username;
+}
+
 class AuthApi {
   static String get _baseUrl {
     if (Platform.isAndroid) return 'http://10.0.2.2:4000/api';
@@ -134,9 +152,10 @@ class AuthApi {
     }
   }
 
-  static Future<String> login({
+  static Future<LoginResult> login({
     required String identifier,
     required String password,
+    String? role,
   }) async {
     try {
       final response = await http
@@ -146,6 +165,7 @@ class AuthApi {
             body: jsonEncode({
               'identifier': identifier.trim(),
               'password': password,
+              'role': ?role,
             }),
           )
           .timeout(const Duration(seconds: 10));
@@ -157,8 +177,15 @@ class AuthApi {
         );
       }
 
-      return body['data']?['user']?['fullName'] as String? ??
-          'Login completed successfully.';
+      final user = body['data']?['user'] as Map<String, dynamic>? ?? {};
+      return LoginResult(
+        fullName: user['fullName'] as String? ?? 'User',
+        role: user['role'] as String? ?? 'student',
+        teacherId: user['teacherId'] as String?,
+        studentId: user['studentId'] as String?,
+        email: user['email'] as String?,
+        username: user['username'] as String?,
+      );
     } on AuthApiException {
       rethrow;
     } on SocketException {
