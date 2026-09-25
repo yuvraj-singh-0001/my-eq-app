@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../journal/presentation/pages/journal_page.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key, this.initialRole = 'student'});
@@ -39,6 +41,7 @@ class _SignupPageState extends State<SignupPage> {
   bool _isSubmitting = false;
   String? _usernameError;
   String? _studentId;
+  String? _authToken;
 
   @override
   void initState() {
@@ -120,7 +123,10 @@ class _SignupPageState extends State<SignupPage> {
           teachingSubject: _teachingSubjectController.text,
         );
         if (!mounted) return;
-        setState(() => _studentId = result.accountId);
+        setState(() {
+          _studentId = result.accountId;
+          _authToken = result.token;
+        });
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
@@ -156,6 +162,32 @@ class _SignupPageState extends State<SignupPage> {
     Navigator.of(context).maybePop();
   }
 
+  void _openDashboard() {
+    Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(
+        builder: (_) => DashboardPage(result: _loginResult()),
+      ),
+    );
+  }
+
+  void _openJournal() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => JournalPage(result: _loginResult()),
+      ),
+    );
+  }
+
+  LoginResult _loginResult() => LoginResult(
+      fullName: _fullNameController.text.trim(),
+      role: _role,
+      teacherId: _role == 'teacher' ? _studentId : null,
+      studentId: _role == 'teacher' ? null : _studentId,
+      email: _emailController.text.trim(),
+      username: _usernameController.text.trim(),
+      token: _authToken,
+    );
+
   @override
   Widget build(BuildContext context) {
     return PopScope<Object?>(
@@ -170,73 +202,87 @@ class _SignupPageState extends State<SignupPage> {
             builder: (context, _) {
               return Form(
                 key: _formKey,
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
-                  ),
-                  child: Column(
-                    children: [
-                      _SignupHeader(
-                        step: _step,
-                        role: _role,
-                        onBack: _handleBack,
-                      ),
-                      if (_step == 2)
-                        _Step3Panel(
-                          onGoToDashboard: () => Navigator.of(context).pop(),
-                        )
-                      else
-                        _SignupFormPanel(
-                          step: _step,
-                          role: _role,
-                          fullNameController: _fullNameController,
-                          emailController: _emailController,
-                          mobileController: _mobileController,
-                          fatherNameController: _fatherNameController,
-                          fatherEmailController: _fatherEmailController,
-                          fatherMobileController: _fatherMobileController,
-                          motherNameController: _motherNameController,
-                          motherEmailController: _motherEmailController,
-                          motherMobileController: _motherMobileController,
-                          usernameController: _usernameController,
-                          usernameError: _usernameError,
-                          studentId: _studentId,
-                          passwordController: _passwordController,
-                          schoolNameController: _schoolNameController,
-                          teachingSubjectController: _teachingSubjectController,
-                          section: _section,
-                          gender: _gender,
-                          assignedTeacher: _assignedTeacher,
-                          obscurePassword: _obscurePassword,
-                          isSubmitting: _isSubmitting,
-                          className: _className,
-                          onClassChanged: (value) =>
-                              setState(() => _className = value),
-                          onSectionChanged: (value) =>
-                              setState(() => _section = value),
-                          onGenderChanged: (value) =>
-                              setState(() => _gender = value),
-                          onTeacherChanged: (value) =>
-                              setState(() => _assignedTeacher = value),
-                          onPasswordVisibilityChanged: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
-                          onUsernameErrorChanged: () =>
-                              setState(() => _usernameError = null),
-                          onNext: _goToNextStep,
-                          onRoleChanged: (role) {
-                            setState(() {
-                              _role = role;
-                              _studentId = null;
-                              _step = 0;
-                            });
-                            _loadAccountId();
-                          },
+                child: _step == 2
+                    ? Column(
+                        children: [
+                          _SignupHeader(
+                            step: _step,
+                            role: _role,
+                            onBack: _handleBack,
+                          ),
+                          Expanded(
+                            child: _Step3Panel(
+                              role: _role,
+                              onGoToDashboard: _openDashboard,
+                              onWriteReflection: _openJournal,
+                            ),
+                          ),
+                        ],
+                      )
+                    : SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
                         ),
-                    ],
-                  ),
-                ),
+                        child: Column(
+                          children: [
+                            _SignupHeader(
+                              step: _step,
+                              role: _role,
+                              onBack: _handleBack,
+                            ),
+                            _SignupFormPanel(
+                              step: _step,
+                              role: _role,
+                              fullNameController: _fullNameController,
+                              emailController: _emailController,
+                              mobileController: _mobileController,
+                              fatherNameController: _fatherNameController,
+                              fatherEmailController: _fatherEmailController,
+                              fatherMobileController: _fatherMobileController,
+                              motherNameController: _motherNameController,
+                              motherEmailController: _motherEmailController,
+                              motherMobileController: _motherMobileController,
+                              usernameController: _usernameController,
+                              usernameError: _usernameError,
+                              studentId: _studentId,
+                              passwordController: _passwordController,
+                              schoolNameController: _schoolNameController,
+                              teachingSubjectController:
+                                  _teachingSubjectController,
+                              section: _section,
+                              gender: _gender,
+                              assignedTeacher: _assignedTeacher,
+                              obscurePassword: _obscurePassword,
+                              isSubmitting: _isSubmitting,
+                              className: _className,
+                              onClassChanged: (value) =>
+                                  setState(() => _className = value),
+                              onSectionChanged: (value) =>
+                                  setState(() => _section = value),
+                              onGenderChanged: (value) =>
+                                  setState(() => _gender = value),
+                              onTeacherChanged: (value) =>
+                                  setState(() => _assignedTeacher = value),
+                              onPasswordVisibilityChanged: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              onUsernameErrorChanged: () =>
+                                  setState(() => _usernameError = null),
+                              onNext: _goToNextStep,
+                              onRoleChanged: (role) {
+                                setState(() {
+                                  _role = role;
+                                  _studentId = null;
+                                  _step = 0;
+                                });
+                                _loadAccountId();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
               );
             },
           ),
@@ -265,7 +311,9 @@ class _SignupHeader extends StatelessWidget {
     final isSmallScreen = screenWidth < 360 || screenHeight < 700;
 
     final headerHeight = step == 2
-        ? (isSmallScreen ? 320.0 : 365.0)
+        ? (screenHeight < 680
+              ? 230.0
+              : (isSmallScreen ? 250.0 : 300.0))
         : (isSmallScreen ? 265.0 : 300.0);
 
     final textWidth = step == 2
@@ -351,7 +399,7 @@ class _SignupHeader extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   step == 2
-                      ? "Your account has been created successfully. Let's begin your journey towards a happier, stronger and more confident you!"
+                      ? 'Your account is ready. Your journey starts now.'
                       : (step == 0
                           ? (role == 'teacher'
                               ? 'Share your details and\nstart teaching with MyEQ.'
@@ -1702,15 +1750,57 @@ class _SignupDropdown extends StatelessWidget {
 }
 
 class _Step3Panel extends StatelessWidget {
-  const _Step3Panel({required this.onGoToDashboard});
+  const _Step3Panel({
+    required this.role,
+    required this.onGoToDashboard,
+    required this.onWriteReflection,
+  });
 
+  final String role;
   final VoidCallback onGoToDashboard;
+  final VoidCallback onWriteReflection;
+
+  void _showFeatureInfo(BuildContext context, String title, String message) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(
+                color: Color(0xFF10234B),
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+              )),
+              const SizedBox(height: 8),
+              Text(message, style: const TextStyle(
+                color: Color(0xFF627087),
+                fontSize: 14,
+                height: 1.4,
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 760;
+    final firstTitle = role == 'teacher'
+        ? 'View Your Students'
+        : 'Write Your First Reflection';
+    final secondTitle = role == 'teacher'
+        ? 'Connect with Parents'
+        : 'Connect with Teacher/Parent';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1722,99 +1812,115 @@ class _Step3Panel extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "What's Next?",
-            style: TextStyle(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, compact ? 12 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("What's Next?", style: TextStyle(
               color: Color(0xFF10234B),
               fontSize: 18,
               fontWeight: FontWeight.w800,
+            )),
+            const SizedBox(height: 2),
+            Text(
+              role == 'teacher'
+                  ? 'Your teacher account is ready. Choose a next step.'
+                  : 'Choose a small step to get started.',
+              style: const TextStyle(color: Color(0xFF627087), fontSize: 12),
             ),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'Here are a few things you can do to get started',
-            style: TextStyle(
-              color: Color(0xFF627087),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDF8F4),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFC7EFE7)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '“',
-                  style: TextStyle(
-                    color: Color(0xFF149B78),
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        '"Every small step counts. You\'re on your way to becoming a better you!"',
-                        style: TextStyle(
-                          color: Color(0xFF2C3E5A),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        '— MindGrow',
-                        style: TextStyle(
-                          color: Color(0xFF149B78),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton(
-              onPressed: onGoToDashboard,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF18A77F),
-                shape: const StadiumBorder(),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            const SizedBox(height: 8),
+            Expanded(
+              child: Column(
                 children: [
-                  Text('Return to Sign In'),
-                  SizedBox(width: 10),
-                  Icon(Icons.arrow_forward_rounded, size: 20),
+                  _WhatsNextTile(
+                    icon: Icons.home_rounded,
+                    iconBg: const Color(0xFFE2F7F0),
+                    iconColor: const Color(0xFF149B78),
+                    title: 'Go to Dashboard',
+                    subtitle: 'Start exploring your personal space',
+                    onTap: onGoToDashboard,
+                  ),
+                  const SizedBox(height: 8),
+                  _WhatsNextTile(
+                    icon: Icons.edit_note_rounded,
+                    iconBg: const Color(0xFFE6F2FF),
+                    iconColor: const Color(0xFF2682D8),
+                    title: firstTitle,
+                    subtitle: role == 'teacher'
+                        ? 'See your connected class'
+                        : 'Share how you feel today',
+                    onTap: role == 'student'
+                        ? onWriteReflection
+                        : () => _showFeatureInfo(
+                            context,
+                            firstTitle,
+                            'These tools will be available from your dashboard.',
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  _WhatsNextTile(
+                    icon: Icons.groups_rounded,
+                    iconBg: const Color(0xFFF0E8FF),
+                    iconColor: const Color(0xFF8151C8),
+                    title: secondTitle,
+                    subtitle: 'Get support from people you trust',
+                    onTap: () => _showFeatureInfo(
+                      context,
+                      secondTitle,
+                      'Your school can help connect the right people to your account.',
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
+            if (!compact) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDF8F4),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFC7EFE7)),
+                ),
+                child: const Text(
+                  'Every small step counts. You are on your way to becoming a better you!  - MYEQApp',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF2C3E5A),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: FilledButton(
+                onPressed: onGoToDashboard,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF18A77F),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Go to Dashboard'),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1839,45 +1945,70 @@ class _WhatsNextTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
+      height: 64,
+      child: Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8EEF5)),
       ),
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: iconBg,
-            shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+              width: 40,
+              height: 40,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF10234B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF627087),
+                      fontSize: 10,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF8E909A),
+                size: 17,
+              ),
+            ],
           ),
-          child: Icon(icon, color: iconColor, size: 22),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Color(0xFF10234B),
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            color: Color(0xFF627087),
-            fontSize: 11,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Color(0xFF8E909A),
-          size: 22,
-        ),
+      ),
       ),
     );
   }

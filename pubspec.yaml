@@ -65,6 +65,7 @@ flutter:
     - lib/assets/images/teachers-singup.png
     - lib/assets/images/studentslogin3step.png
     - lib/assets/images/studentslogin3step1.png
+    - lib/assets/images/Firstnotewrite.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -11,10 +11,11 @@ class AuthApiException implements Exception {
 }
 
 class SignupResult {
-  const SignupResult({required this.message, required this.accountId});
+  const SignupResult({required this.message, required this.accountId, this.token});
 
   final String message;
   final String accountId;
+  final String? token;
 }
 
 class LoginResult {
@@ -25,6 +26,7 @@ class LoginResult {
     this.studentId,
     this.email,
     this.username,
+    this.token,
   });
 
   final String fullName;
@@ -33,6 +35,33 @@ class LoginResult {
   final String? studentId;
   final String? email;
   final String? username;
+  final String? token;
+}
+
+class JournalNoteData {
+  const JournalNoteData({
+    required this.id,
+    required this.category,
+    required this.text,
+    required this.createdAt,
+    this.mood,
+  });
+
+  final String id;
+  final String category;
+  final String text;
+  final DateTime createdAt;
+  final String? mood;
+
+  factory JournalNoteData.fromJson(Map<String, dynamic> json) {
+    return JournalNoteData(
+      id: json['id'] as String? ?? '',
+      category: json['category'] as String? ?? 'Reflection',
+      text: json['text'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      mood: json['mood'] as String?,
+    );
+  }
 }
 
 class AuthApi {
@@ -134,6 +163,7 @@ class AuthApi {
       }
 
       final user = body['data']?['user'];
+      final token = body['data']?['token'] as String?;
       final accountId = user is Map<String, dynamic>
           ? (role == 'teacher' ? user['teacherId'] : user['studentId'])
                 as String?
@@ -144,6 +174,7 @@ class AuthApi {
       return SignupResult(
         message: body['message'] as String? ?? 'Account created successfully.',
         accountId: accountId,
+        token: token,
       );
     } on AuthApiException {
       rethrow;
@@ -199,6 +230,7 @@ class AuthApi {
         studentId: user['studentId'] as String?,
         email: user['email'] as String?,
         username: user['username'] as String?,
+        token: body['data']?['token'] as String?,
       );
     } on AuthApiException {
       rethrow;
@@ -218,6 +250,78 @@ class AuthApi {
       throw const AuthApiException('The server returned an invalid response.');
     } catch (_) {
       throw const AuthApiException('Login failed. Please try again.');
+    }
+  }
+
+  static Future<List<JournalNoteData>> getJournalNotes(String token) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/journal/notes'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'Notes could not be loaded.');
+      }
+      final notes = body['data']?['notes'] as List<dynamic>? ?? const [];
+      return notes
+          .whereType<Map<String, dynamic>>()
+          .map(JournalNoteData.fromJson)
+          .toList(growable: false);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to the server to load notes.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to the server to load notes.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading notes timed out. Please try again.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid notes data.');
+    }
+  }
+
+  static Future<JournalNoteData> createJournalNote({
+    required String token,
+    required String category,
+    required String text,
+    String? mood,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/journal/notes'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'category': category,
+              'text': text,
+              'mood': mood,
+              'isPrivate': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'Note could not be saved.');
+      }
+      final note = body['data']?['note'] as Map<String, dynamic>?;
+      if (note == null) throw const AuthApiException('The saved note was not returned.');
+      return JournalNoteData.fromJson(note);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to the server to save your note.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to the server to save your note.');
+    } on TimeoutException {
+      throw const AuthApiException('Saving the note timed out. Please try again.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid note data.');
     }
   }
 

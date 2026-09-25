@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../journal/presentation/pages/journal_page.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -71,9 +72,12 @@ class _LoginPageState extends State<LoginPage> {
         builder: (dialogContext) => _LoginSuccessDialog(result: result),
       );
       if (!mounted) return;
+      final destination = result.role.trim().toLowerCase() == 'student'
+          ? JournalPage(result: result)
+          : DashboardPage(result: result);
       await Navigator.of(context).pushReplacement<void, void>(
         MaterialPageRoute<void>(
-          builder: (_) => DashboardPage(result: result),
+          builder: (_) => destination,
         ),
       );
     } on AuthApiException catch (error) {

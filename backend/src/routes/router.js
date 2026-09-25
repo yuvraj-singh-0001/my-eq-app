@@ -6,6 +6,7 @@ import { User } from '../models/users.js';
 import { authenticate } from '../middleware/auth.js';
 import { previewStudentId } from '../controllers/auth/auth.helpers.js';
 import { Counter } from '../models/counters.js';
+import { createJournalNote, listJournalNotes } from '../controllers/journal-notes.js';
 
 export const router = Router();
 
@@ -15,6 +16,8 @@ router.get('/health', (_request, response) => {
 
 router.post('/login', login);
 router.post('/signup', signup);
+router.get('/journal/notes', authenticate, listJournalNotes);
+router.post('/journal/notes', authenticate, createJournalNote);
 
 router.get('/check-availability', async (request, response) => {
   const { email, mobileNumber, username } = request.query;
