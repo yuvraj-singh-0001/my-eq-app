@@ -5,7 +5,9 @@ import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key});
+  const SignupPage({super.key, this.initialRole = 'student'});
+
+  final String initialRole;
 
   @override
   State<SignupPage> createState() => _SignupPageState();
@@ -41,6 +43,7 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void initState() {
     super.initState();
+    _role = widget.initialRole == 'teacher' ? 'teacher' : 'student';
     _loadAccountId();
   }
 
@@ -128,6 +131,9 @@ class _SignupPageState extends State<SignupPage> {
             message: result.message,
           ),
         );
+        if (mounted) {
+          setState(() => _step = 2);
+        }
       } on AuthApiException catch (error) {
         if (!mounted) return;
         if (error.message.toLowerCase().contains('username')) {
@@ -141,80 +147,99 @@ class _SignupPageState extends State<SignupPage> {
     }
   }
 
+  void _handleBack() {
+    if (_step == 1) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() => _step = 0);
+      return;
+    }
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7FBFC),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isCompact = constraints.maxHeight < 760;
-            return Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+    return PopScope<Object?>(
+      canPop: _step != 1,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _step == 1) _handleBack();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7FBFC),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, _) {
+              return Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+                  ),
+                  child: Column(
+                    children: [
+                      _SignupHeader(
+                        step: _step,
+                        role: _role,
+                        onBack: _handleBack,
+                      ),
+                      if (_step == 2)
+                        _Step3Panel(
+                          onGoToDashboard: () => Navigator.of(context).pop(),
+                        )
+                      else
+                        _SignupFormPanel(
+                          step: _step,
+                          role: _role,
+                          fullNameController: _fullNameController,
+                          emailController: _emailController,
+                          mobileController: _mobileController,
+                          fatherNameController: _fatherNameController,
+                          fatherEmailController: _fatherEmailController,
+                          fatherMobileController: _fatherMobileController,
+                          motherNameController: _motherNameController,
+                          motherEmailController: _motherEmailController,
+                          motherMobileController: _motherMobileController,
+                          usernameController: _usernameController,
+                          usernameError: _usernameError,
+                          studentId: _studentId,
+                          passwordController: _passwordController,
+                          schoolNameController: _schoolNameController,
+                          teachingSubjectController: _teachingSubjectController,
+                          section: _section,
+                          gender: _gender,
+                          assignedTeacher: _assignedTeacher,
+                          obscurePassword: _obscurePassword,
+                          isSubmitting: _isSubmitting,
+                          className: _className,
+                          onClassChanged: (value) =>
+                              setState(() => _className = value),
+                          onSectionChanged: (value) =>
+                              setState(() => _section = value),
+                          onGenderChanged: (value) =>
+                              setState(() => _gender = value),
+                          onTeacherChanged: (value) =>
+                              setState(() => _assignedTeacher = value),
+                          onPasswordVisibilityChanged: () =>
+                              setState(() => _obscurePassword = !_obscurePassword),
+                          onUsernameErrorChanged: () =>
+                              setState(() => _usernameError = null),
+                          onNext: _goToNextStep,
+                          onRoleChanged: (role) {
+                            setState(() {
+                              _role = role;
+                              _studentId = null;
+                              _step = 0;
+                            });
+                            _loadAccountId();
+                          },
+                        ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    _SignupHeader(
-                      isCompact: isCompact,
-                      step: _step,
-                      role: _role,
-                    ),
-                    _SignupFormPanel(
-                      step: _step,
-                      role: _role,
-                      fullNameController: _fullNameController,
-                      emailController: _emailController,
-                      mobileController: _mobileController,
-                      fatherNameController: _fatherNameController,
-                      fatherEmailController: _fatherEmailController,
-                      fatherMobileController: _fatherMobileController,
-                      motherNameController: _motherNameController,
-                      motherEmailController: _motherEmailController,
-                      motherMobileController: _motherMobileController,
-                      usernameController: _usernameController,
-                      usernameError: _usernameError,
-                      studentId: _studentId,
-                      passwordController: _passwordController,
-                      schoolNameController: _schoolNameController,
-                      teachingSubjectController: _teachingSubjectController,
-                      section: _section,
-                      gender: _gender,
-                      assignedTeacher: _assignedTeacher,
-                      obscurePassword: _obscurePassword,
-                      isSubmitting: _isSubmitting,
-                      className: _className,
-                      onClassChanged: (value) =>
-                          setState(() => _className = value),
-                      onSectionChanged: (value) =>
-                          setState(() => _section = value),
-                      onGenderChanged: (value) =>
-                          setState(() => _gender = value),
-                      onTeacherChanged: (value) =>
-                          setState(() => _assignedTeacher = value),
-                      onPasswordVisibilityChanged: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                      onUsernameErrorChanged: () =>
-                          setState(() => _usernameError = null),
-                      onNext: _goToNextStep,
-                      onRoleChanged: (role) {
-                        setState(() {
-                          _role = role;
-                          _studentId = null;
-                          _step = 0;
-                        });
-                        _loadAccountId();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -223,88 +248,137 @@ class _SignupPageState extends State<SignupPage> {
 
 class _SignupHeader extends StatelessWidget {
   const _SignupHeader({
-    required this.isCompact,
     required this.step,
     required this.role,
+    required this.onBack,
   });
 
-  final bool isCompact;
   final int step;
   final String role;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final isSmallScreen = screenWidth < 360 || screenHeight < 700;
+
+    final headerHeight = step == 2
+        ? (isSmallScreen ? 320.0 : 365.0)
+        : (isSmallScreen ? 265.0 : 300.0);
+
+    final textWidth = step == 2
+        ? (screenWidth * 0.48).clamp(155.0, 195.0)
+        : (screenWidth * 0.52).clamp(160.0, 220.0);
+
+    final heroWidth = screenWidth < 380
+        ? screenWidth * 0.38
+        : (step == 2
+              ? (screenWidth * 0.58).clamp(215.0, 275.0)
+              : (role == 'teacher'
+                    ? (screenWidth * 0.52).clamp(190.0, 250.0)
+                    : (screenWidth * 0.55).clamp(200.0, 275.0)));
+
     return SizedBox(
-      height: isCompact ? 270 : 305,
+      height: headerHeight,
       child: Stack(
         children: [
           Positioned(
-            left: 24,
-            top: 20,
+            left: 16,
+            top: 18,
             child: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: onBack,
               icon: const Icon(Icons.arrow_back, color: Color(0xFF203454)),
             ),
           ),
           const Positioned(left: 0, right: 0, top: 20, child: _SignupBrand()),
           Positioned(
-            right: 24,
+            right: 20,
             top: 24,
             child: Text(
-              'Step ${step + 1} of 2',
-              style: const TextStyle(color: Color(0xFF53647C), fontSize: 12),
+              'Step ${step + 1} of 3',
+              style: const TextStyle(
+                color: Color(0xFF53647C),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Positioned(
-            left: 30,
-            top: 82,
-            right: 30,
+            left: 20,
+            top: 72,
+            right: 20,
             child: _ProgressIndicator(step: step, role: role),
           ),
           Positioned(
-            left: 24,
-            top: isCompact ? 132 : 145,
-            child: Text(
-              role == 'teacher'
-                  ? (step == 0 ? 'Join as a\nTeacher' : 'Teacher\nAccount')
-                  : (step == 0 ? 'Create Your\nAccount' : 'Family &\nAccount'),
-              style: const TextStyle(
-                color: Color(0xFF10234B),
-                fontSize: 30,
-                height: 1.03,
-                fontWeight: FontWeight.w800,
-              ),
+            left: 20,
+            top: isSmallScreen ? 116.0 : 128.0,
+            width: textWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (step == 2)
+                  RichText(
+                    text: TextSpan(
+                      text: "You're\n",
+                      style: TextStyle(
+                        color: const Color(0xFF10234B),
+                        fontSize: isSmallScreen ? 28.0 : 33.0,
+                        height: 1.02,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      children: const [
+                        TextSpan(
+                          text: 'All Set! 🎉',
+                          style: TextStyle(color: Color(0xFF149B78)),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Text(
+                    role == 'teacher'
+                        ? (step == 0 ? 'Join as a\nTeacher' : 'Teacher\nAccount')
+                        : (step == 0 ? 'Create Your\nAccount' : 'Family &\nAccount'),
+                    style: TextStyle(
+                      color: const Color(0xFF10234B),
+                      fontSize: isSmallScreen ? 26.0 : 30.0,
+                      height: 1.03,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  step == 2
+                      ? "Your account has been created successfully. Let's begin your journey towards a happier, stronger and more confident you!"
+                      : (step == 0
+                          ? (role == 'teacher'
+                              ? 'Share your details and\nstart teaching with MyEQ.'
+                              : "Let's get to know you better\nso we can support your journey.")
+                          : (role == 'teacher'
+                              ? 'Create your secure teacher\naccount to continue.'
+                              : 'Add family details and secure\nyour MyEQ App account.')),
+                  style: TextStyle(
+                    color: const Color(0xFF627087),
+                    fontSize: isSmallScreen ? 11.0 : 12.0,
+                    height: 1.38,
+                  ),
+                ),
+              ],
             ),
           ),
           Positioned(
-            left: 24,
-            top: isCompact ? 202 : 215,
-            child: Text(
-              step == 0
-                  ? (role == 'teacher'
-                    ? 'Share your details and\nstart teaching with MyEQ.'
-                    : "Let's get to know you better\nso we can support your journey.")
-                  : (role == 'teacher'
-                    ? 'Create your secure teacher\naccount to continue.'
-                    : 'Add family details and secure\nyour MyEQ App account.'),
-              style: const TextStyle(
-                color: Color(0xFF627087),
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ),
-          Positioned(
-            right: -18,
-            bottom: -45,
-            width: role == 'teacher'
-                ? (isCompact ? 205 : 245)
-                : (isCompact ? 225 : 270),
+            right: screenWidth < 380 ? 0 : (step == 2 ? -8.0 : -18.0),
+            bottom: step == 2 ? -10.0 : -40.0,
+            width: heroWidth,
             child: Image.asset(
-              role == 'teacher'
-                  ? 'lib/assets/images/teachers-singup.png'
-                  : 'lib/assets/images/sign-up-image.png',
-              cacheWidth: 650,
+              step == 2
+                  ? 'lib/assets/images/studentslogin3step1.png'
+                  : (role == 'teacher'
+                      ? 'lib/assets/images/teachers-singup.png'
+                      : 'lib/assets/images/sign-up-image.png'),
+              cacheWidth: 800,
               fit: BoxFit.contain,
             ),
           ),
@@ -356,23 +430,37 @@ class _ProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const _ProgressDot(active: true, label: 'Basic Info'),
+        _ProgressDot(
+          active: true,
+          completed: step >= 0,
+          label: 'Basic Info',
+        ),
         Expanded(child: _ProgressLine(active: step > 0)),
         _ProgressDot(
           active: step > 0,
-          label: role == 'teacher' ? 'Account Details' : 'Family Details',
+          completed: step >= 1,
+          label: role == 'teacher' ? 'Account Details' : 'Additional Info',
         ),
-        Expanded(child: _ProgressLine(active: false)),
-        const _ProgressDot(active: false, label: 'Complete'),
+        Expanded(child: _ProgressLine(active: step > 1)),
+        _ProgressDot(
+          active: step > 1,
+          completed: step >= 2,
+          label: 'Complete',
+        ),
       ],
     );
   }
 }
 
 class _ProgressDot extends StatelessWidget {
-  const _ProgressDot({required this.active, required this.label});
+  const _ProgressDot({
+    required this.active,
+    required this.completed,
+    required this.label,
+  });
 
   final bool active;
+  final bool completed;
   final String label;
 
   @override
@@ -380,10 +468,13 @@ class _ProgressDot extends StatelessWidget {
     return Column(
       children: [
         CircleAvatar(
-          radius: 7,
+          radius: 9,
           backgroundColor: active
               ? const Color(0xFF18A77F)
               : const Color(0xFFD8DFEB),
+          child: completed
+              ? const Icon(Icons.check, size: 12, color: Colors.white)
+              : null,
         ),
         const SizedBox(height: 5),
         Text(
@@ -391,6 +482,7 @@ class _ProgressDot extends StatelessWidget {
           style: TextStyle(
             color: active ? const Color(0xFF159976) : const Color(0xFF7A879A),
             fontSize: 9,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
       ],
@@ -1116,7 +1208,7 @@ class _StudentIdField extends StatelessWidget {
   }
 }
 
-class _AccountCreatedDialog extends StatelessWidget {
+class _AccountCreatedDialog extends StatefulWidget {
   const _AccountCreatedDialog({
     required this.role,
     required this.fullName,
@@ -1130,8 +1222,19 @@ class _AccountCreatedDialog extends StatelessWidget {
   final String message;
 
   @override
+  State<_AccountCreatedDialog> createState() => _AccountCreatedDialogState();
+}
+
+class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
+  void _proceed() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isTeacher = role == 'teacher';
+    final isTeacher = widget.role == 'teacher';
     final roleTitle = isTeacher ? 'Teacher' : 'Student';
     final idTitle = isTeacher ? 'TEACHER ID' : 'STUDENT ID';
     final themeColor = isTeacher ? const Color(0xFF0F8A6B) : const Color(0xFF149B78);
@@ -1175,13 +1278,19 @@ class _AccountCreatedDialog extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Welcome, $fullName',
+              'Welcome, ${widget.fullName}',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF53647C),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF627087), fontSize: 12),
             ),
             const SizedBox(height: 10),
             Container(
@@ -1245,7 +1354,7 @@ class _AccountCreatedDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   SelectableText(
-                    accountId,
+                    widget.accountId,
                     style: const TextStyle(
                       color: Color(0xFF10234B),
                       fontSize: 24,
@@ -1258,7 +1367,7 @@ class _AccountCreatedDialog extends StatelessWidget {
                     height: 36,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: accountId));
+                        Clipboard.setData(ClipboardData(text: widget.accountId));
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('$roleTitle ID copied to clipboard!'),
@@ -1282,7 +1391,7 @@ class _AccountCreatedDialog extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Text(
               'Save your $idTitle. You can use it to log in anytime.',
               textAlign: TextAlign.center,
@@ -1291,27 +1400,24 @@ class _AccountCreatedDialog extends StatelessWidget {
                 fontSize: 11,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 48,
               child: FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close dialog
-                  Navigator.of(context).pop(); // Return to Login page
-                },
+                onPressed: _proceed,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF18A77F),
                   shape: const StadiumBorder(),
                   textStyle: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Proceed to Sign In'),
+                    Text('Continue'),
                     SizedBox(width: 8),
                     Icon(Icons.arrow_forward_rounded, size: 18),
                   ],
@@ -1591,6 +1697,188 @@ class _SignupDropdown extends StatelessWidget {
               .toList(),
         ),
       ],
+    );
+  }
+}
+
+class _Step3Panel extends StatelessWidget {
+  const _Step3Panel({required this.onGoToDashboard});
+
+  final VoidCallback onGoToDashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x160B5E55),
+            blurRadius: 18,
+            offset: Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "What's Next?",
+            style: TextStyle(
+              color: Color(0xFF10234B),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Here are a few things you can do to get started',
+            style: TextStyle(
+              color: Color(0xFF627087),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEDF8F4),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFC7EFE7)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '“',
+                  style: TextStyle(
+                    color: Color(0xFF149B78),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        '"Every small step counts. You\'re on your way to becoming a better you!"',
+                        style: TextStyle(
+                          color: Color(0xFF2C3E5A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        '— MindGrow',
+                        style: TextStyle(
+                          color: Color(0xFF149B78),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton(
+              onPressed: onGoToDashboard,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF18A77F),
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Return to Sign In'),
+                  SizedBox(width: 10),
+                  Icon(Icons.arrow_forward_rounded, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WhatsNextTile extends StatelessWidget {
+  const _WhatsNextTile({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EEF5)),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: iconBg,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF10234B),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: Color(0xFF627087),
+            fontSize: 11,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF8E909A),
+          size: 22,
+        ),
+      ),
     );
   }
 }

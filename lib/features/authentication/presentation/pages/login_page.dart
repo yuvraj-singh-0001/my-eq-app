@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -66,7 +67,14 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
+        barrierDismissible: false,
         builder: (dialogContext) => _LoginSuccessDialog(result: result),
+      );
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute<void>(
+          builder: (_) => DashboardPage(result: result),
+        ),
       );
     } on AuthApiException catch (error) {
       if (!mounted) return;
@@ -484,8 +492,8 @@ class _LoginFormPanel extends StatelessWidget {
             const SizedBox(height: 16),
             const _OrDivider(),
             const SizedBox(height: 12),
-            const Row(
-              children: [
+            Row(
+              children: const [
                 Expanded(
                   child: _SocialButton(
                     icon: Icons.g_mobiledata,
@@ -507,9 +515,22 @@ class _LoginFormPanel extends StatelessWidget {
               width: double.infinity,
               height: 50,
               child: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const SignupPage()),
-                ),
+                onPressed: () {
+                  if (selectedRole == 2) {
+                    showTopErrorNotification(
+                      context,
+                      'Parent accounts are provided by your school. Please contact your school administrator.',
+                    );
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SignupPage(
+                        initialRole: selectedRole == 1 ? 'teacher' : 'student',
+                      ),
+                    ),
+                  );
+                },
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFFF1FAF7),
                   foregroundColor: const Color(0xFF31415C),
@@ -817,7 +838,11 @@ class _LoginSuccessDialog extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isTeacher ? Icons.groups_outlined : Icons.school_outlined,
+                    isTeacher
+                        ? Icons.groups_outlined
+                        : (result.role == 'parent'
+                              ? Icons.family_restroom_outlined
+                              : Icons.school_outlined),
                     size: 16,
                     color: const Color(0xFF53647C),
                   ),

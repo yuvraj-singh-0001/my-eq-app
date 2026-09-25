@@ -25,7 +25,16 @@ export async function signup(request, response) {
   });
 
   if (existingUser) {
-    throw createHttpError(409, 'Email, mobile number, or username is already registered');
+    if (existingUser.email === email) {
+      throw createHttpError(409, 'Gmail is already registered');
+    }
+    if (existingUser.mobileNumber === mobileNumber) {
+      throw createHttpError(409, 'Mobile number is already registered');
+    }
+    if (existingUser.username === username) {
+      throw createHttpError(409, 'Username is already taken');
+    }
+    throw createHttpError(409, 'An account with these details already exists');
   }
 
   const passwordHash = await bcrypt.hash(data.password, config.bcryptRounds);

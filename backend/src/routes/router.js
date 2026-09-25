@@ -15,6 +15,35 @@ router.get('/health', (_request, response) => {
 
 router.post('/login', login);
 router.post('/signup', signup);
+
+router.get('/check-availability', async (request, response) => {
+  const { email, mobileNumber, username } = request.query;
+  const filter = [];
+  if (email) filter.push({ email: email.toLowerCase().trim() });
+  if (mobileNumber) filter.push({ mobileNumber: mobileNumber.replace(/\D/g, '') });
+  if (username) filter.push({ username: username.toLowerCase().trim() });
+
+  if (filter.length === 0) {
+    return response.json({ success: true, available: true });
+  }
+
+  const existing = await User.findOne({ $or: filter });
+  if (!existing) {
+    return response.json({ success: true, available: true });
+  }
+
+  let field = 'Field';
+  if (email && existing.email === email.toLowerCase().trim()) field = 'Gmail';
+  else if (mobileNumber && existing.mobileNumber === mobileNumber.replace(/\D/g, '')) field = 'Mobile number';
+  else if (username && existing.username === username.toLowerCase().trim()) field = 'Username';
+
+  return response.json({
+    success: true,
+    available: false,
+    message: `${field} is already registered`,
+  });
+});
+
 router.get('/account-id', async (request, response) => {
   const role = request.query.role === 'teacher' ? 'teacher' : 'student';
   if (role === 'teacher') {

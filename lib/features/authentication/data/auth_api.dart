@@ -36,33 +36,43 @@ class LoginResult {
 }
 
 class AuthApi {
+  static const _configuredBaseUrl = String.fromEnvironment('MYEQ_API_BASE_URL');
+
   static String get _baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+    }
     if (Platform.isAndroid) return 'http://10.0.2.2:4000/api';
     return 'http://127.0.0.1:4000/api';
   }
 
   static Future<String> previewAccountId(String role) async {
+    final accountType = role == 'teacher' ? 'Teacher' : 'Student';
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/auth/account-id?role=$role'))
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AuthApiException('Student ID could not be generated.');
+        throw AuthApiException('$accountType ID could not be generated.');
       }
       final accountId = body['data']?['accountId'] as String?;
       if (accountId == null || accountId.isEmpty) {
-        throw const AuthApiException('Student ID could not be generated.');
+        throw AuthApiException('$accountType ID could not be generated.');
       }
       return accountId;
     } on AuthApiException {
       rethrow;
     } on SocketException {
-      throw const AuthApiException('Cannot connect to the server.');
+      throw AuthApiException('Cannot connect to the server.');
+    } on http.ClientException {
+      throw AuthApiException('Cannot connect to the server.');
     } on TimeoutException {
-      throw const AuthApiException('Student ID request timed out.');
+      throw AuthApiException(
+        '$accountType ID request timed out.',
+      );
     } catch (_) {
-      throw const AuthApiException('Student ID could not be generated.');
+      throw AuthApiException('$accountType ID could not be generated.');
     }
   }
 
@@ -141,6 +151,10 @@ class AuthApi {
       throw const AuthApiException(
         'Cannot connect to the server. Start the backend and check the API address.',
       );
+    } on http.ClientException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Start the backend and check the API address.',
+      );
     } on HttpException {
       throw const AuthApiException(
         'The server connection failed. Please try again.',
@@ -189,6 +203,10 @@ class AuthApi {
     } on AuthApiException {
       rethrow;
     } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Start the backend and check the API address.',
+      );
+    } on http.ClientException {
       throw const AuthApiException(
         'Cannot connect to the server. Start the backend and check the API address.',
       );
