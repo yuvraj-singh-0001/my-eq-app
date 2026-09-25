@@ -35,7 +35,7 @@ class AppBottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+          padding: const EdgeInsets.fromLTRB(7, 4, 7, 3),
           child: Row(
             children: [
               for (var index = 0; index < _destinations.length; index++)
@@ -81,8 +81,8 @@ class _NavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          constraints: const BoxConstraints(minHeight: 60),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
           decoration: BoxDecoration(
             color: selected ? const Color(0xFF13A483) : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
@@ -90,7 +90,7 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 23, color: selected ? Colors.white : color),
+              Icon(icon, size: 20, color: selected ? Colors.white : color),
               const SizedBox(height: 2),
               Text(
                 label,
@@ -98,7 +98,7 @@ class _NavItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: selected ? Colors.white : color,
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
