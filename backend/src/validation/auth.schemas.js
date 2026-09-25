@@ -12,7 +12,7 @@ const passwordSchema = z.string()
   .regex(/[^A-Za-z0-9]/, 'Password must include a special character');
 
 export const signupSchema = z.object({
-  role: z.enum(['student', 'teacher']).default('student'),
+  role: z.enum(['student', 'teacher', 'parent']).default('student'),
   fullName: z.string().trim().min(1, 'Full name is required').max(100),
   email: emailSchema,
   mobileNumber: mobileSchema,
@@ -23,7 +23,7 @@ export const signupSchema = z.object({
     name: z.string().trim().max(100).optional().or(z.literal('')),
     mobileNumber: optionalMobileSchema,
     email: optionalEmailSchema,
-  }),
+  }).default({}),
   mother: z.object({
     name: z.string().trim().max(100).optional().or(z.literal('')),
     mobileNumber: optionalMobileSchema,

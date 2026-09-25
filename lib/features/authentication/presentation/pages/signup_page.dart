@@ -179,14 +179,14 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   LoginResult _loginResult() => LoginResult(
-      fullName: _fullNameController.text.trim(),
-      role: _role,
-      teacherId: _role == 'teacher' ? _studentId : null,
-      studentId: _role == 'teacher' ? null : _studentId,
-      email: _emailController.text.trim(),
-      username: _usernameController.text.trim(),
-      token: _authToken,
-    );
+    fullName: _fullNameController.text.trim(),
+    role: _role,
+    teacherId: _role == 'teacher' ? _studentId : null,
+    studentId: _role == 'teacher' ? null : _studentId,
+    email: _emailController.text.trim(),
+    username: _usernameController.text.trim(),
+    token: _authToken,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -311,9 +311,7 @@ class _SignupHeader extends StatelessWidget {
     final isSmallScreen = screenWidth < 360 || screenHeight < 700;
 
     final headerHeight = step == 2
-        ? (screenHeight < 680
-              ? 230.0
-              : (isSmallScreen ? 250.0 : 300.0))
+        ? (screenHeight < 680 ? 230.0 : (isSmallScreen ? 250.0 : 300.0))
         : (isSmallScreen ? 265.0 : 300.0);
 
     final textWidth = step == 2
@@ -387,8 +385,12 @@ class _SignupHeader extends StatelessWidget {
                 else
                   Text(
                     role == 'teacher'
-                        ? (step == 0 ? 'Join as a\nTeacher' : 'Teacher\nAccount')
-                        : (step == 0 ? 'Create Your\nAccount' : 'Family &\nAccount'),
+                        ? (step == 0
+                              ? 'Join as a\nTeacher'
+                              : 'Teacher\nAccount')
+                        : (step == 0
+                              ? 'Create Your\nAccount'
+                              : 'Family &\nAccount'),
                     style: TextStyle(
                       color: const Color(0xFF10234B),
                       fontSize: isSmallScreen ? 26.0 : 30.0,
@@ -401,12 +403,12 @@ class _SignupHeader extends StatelessWidget {
                   step == 2
                       ? 'Your account is ready. Your journey starts now.'
                       : (step == 0
-                          ? (role == 'teacher'
-                              ? 'Share your details and\nstart teaching with MyEQ.'
-                              : "Let's get to know you better\nso we can support your journey.")
-                          : (role == 'teacher'
-                              ? 'Create your secure teacher\naccount to continue.'
-                              : 'Add family details and secure\nyour MyEQ App account.')),
+                            ? (role == 'teacher'
+                                  ? 'Share your details and\nstart teaching with MyEQ.'
+                                  : "Let's get to know you better\nso we can support your journey.")
+                            : (role == 'teacher'
+                                  ? 'Create your secure teacher\naccount to continue.'
+                                  : 'Add family details and secure\nyour MyEQ App account.')),
                   style: TextStyle(
                     color: const Color(0xFF627087),
                     fontSize: isSmallScreen ? 11.0 : 12.0,
@@ -424,8 +426,8 @@ class _SignupHeader extends StatelessWidget {
               step == 2
                   ? 'lib/assets/images/studentslogin3step1.png'
                   : (role == 'teacher'
-                      ? 'lib/assets/images/teachers-singup.png'
-                      : 'lib/assets/images/sign-up-image.png'),
+                        ? 'lib/assets/images/teachers-singup.png'
+                        : 'lib/assets/images/sign-up-image.png'),
               cacheWidth: 800,
               fit: BoxFit.contain,
             ),
@@ -478,11 +480,7 @@ class _ProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ProgressDot(
-          active: true,
-          completed: step >= 0,
-          label: 'Basic Info',
-        ),
+        _ProgressDot(active: true, completed: step >= 0, label: 'Basic Info'),
         Expanded(child: _ProgressLine(active: step > 0)),
         _ProgressDot(
           active: step > 0,
@@ -490,11 +488,7 @@ class _ProgressIndicator extends StatelessWidget {
           label: role == 'teacher' ? 'Account Details' : 'Additional Info',
         ),
         Expanded(child: _ProgressLine(active: step > 1)),
-        _ProgressDot(
-          active: step > 1,
-          completed: step >= 2,
-          label: 'Complete',
-        ),
+        _ProgressDot(active: step > 1, completed: step >= 2, label: 'Complete'),
       ],
     );
   }
@@ -1285,7 +1279,9 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
     final isTeacher = widget.role == 'teacher';
     final roleTitle = isTeacher ? 'Teacher' : 'Student';
     final idTitle = isTeacher ? 'TEACHER ID' : 'STUDENT ID';
-    final themeColor = isTeacher ? const Color(0xFF0F8A6B) : const Color(0xFF149B78);
+    final themeColor = isTeacher
+        ? const Color(0xFF0F8A6B)
+        : const Color(0xFF149B78);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -1415,7 +1411,9 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
                     height: 36,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: widget.accountId));
+                        Clipboard.setData(
+                          ClipboardData(text: widget.accountId),
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('$roleTitle ID copied to clipboard!'),
@@ -1443,10 +1441,7 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
             Text(
               'Save your $idTitle. You can use it to log in anytime.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF7A879A),
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Color(0xFF7A879A), fontSize: 11),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -1771,17 +1766,23 @@ class _Step3Panel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(
-                color: Color(0xFF10234B),
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              )),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF10234B),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text(message, style: const TextStyle(
-                color: Color(0xFF627087),
-                fontSize: 14,
-                height: 1.4,
-              )),
+              Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xFF627087),
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
             ],
           ),
         ),
@@ -1813,15 +1814,23 @@ class _Step3Panel extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, compact ? 12 : 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          compact ? 10 : 14,
+          16,
+          compact ? 12 : 16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("What's Next?", style: TextStyle(
-              color: Color(0xFF10234B),
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            )),
+            const Text(
+              "What's Next?",
+              style: TextStyle(
+                color: Color(0xFF10234B),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             const SizedBox(height: 2),
             Text(
               role == 'teacher'
@@ -1878,7 +1887,10 @@ class _Step3Panel extends StatelessWidget {
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEDF8F4),
                   borderRadius: BorderRadius.circular(14),
@@ -1907,7 +1919,10 @@ class _Step3Panel extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF18A77F),
                   shape: const StadiumBorder(),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1948,67 +1963,67 @@ class _WhatsNextTile extends StatelessWidget {
     return SizedBox(
       height: 64,
       child: Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            children: [
-              Container(
-              width: 40,
-              height: 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  shape: BoxShape.circle,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8EEF5)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 19),
                 ),
-                child: Icon(icon, color: iconColor, size: 19),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF10234B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        height: 1.1,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF10234B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF627087),
-                      fontSize: 10,
-                        height: 1.1,
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF627087),
+                          fontSize: 10,
+                          height: 1.1,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF8E909A),
-                size: 17,
-              ),
-            ],
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF8E909A),
+                  size: 17,
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

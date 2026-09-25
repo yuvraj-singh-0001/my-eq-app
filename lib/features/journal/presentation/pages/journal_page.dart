@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../authentication/data/auth_api.dart';
 import 'reflection_editor_page.dart';
+import 'self_regulation_content.dart';
+import 'self_regulation_topics_page.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key, required this.result});
@@ -120,6 +122,8 @@ class _JournalPageState extends State<JournalPage> {
   String? _selectedMood;
   bool _isLoadingNotes = true;
   String? _notesError;
+  bool _hasMoreNotes = false;
+  String? _notesCursor;
 
   @override
   void initState() {
@@ -149,12 +153,14 @@ class _JournalPageState extends State<JournalPage> {
       });
     }
     try {
-      final notes = await AuthApi.getJournalNotes(token);
+      final page = await AuthApi.getJournalNotes(token);
       if (!mounted) return;
       setState(() {
         _notes
           ..clear()
-          ..addAll(notes);
+          ..addAll(page.notes);
+        _hasMoreNotes = page.hasMore;
+        _notesCursor = page.nextCursor;
         _isLoadingNotes = false;
         _notesError = null;
       });
@@ -177,13 +183,35 @@ class _JournalPageState extends State<JournalPage> {
       );
       return;
     }
+    var initialText = _noteController.text.trim();
+    var selectedStatements = <String>[];
+    var selectedSections = <Map<String, Object?>>[];
+    var customText = '';
+
+    if (_selectedCategory == 'Self-Regulation') {
+      final draft = await Navigator.of(context).push<SelfRegulationDraft>(
+        MaterialPageRoute<SelfRegulationDraft>(
+          builder: (_) => const SelfRegulationTopicsPage(),
+        ),
+      );
+      if (!mounted || draft == null) return;
+      selectedStatements = draft.selectedStatements;
+      selectedSections = draft.sections;
+      customText = draft.customText;
+      if (initialText.isNotEmpty) initialText = 'My reflection: $initialText';
+    }
+
     final note = await Navigator.of(context).push<JournalNoteData>(
       MaterialPageRoute<JournalNoteData>(
         builder: (_) => ReflectionEditorPage(
           token: token,
           category: _selectedCategory ?? 'Reflection',
           mood: _selectedMood,
-          initialText: _noteController.text.trim(),
+          initialText: initialText,
+          responses: selectedStatements,
+          sections: selectedSections,
+          customText: customText,
+          showStepProgress: _selectedCategory == 'Self-Regulation',
         ),
       ),
     );
@@ -218,19 +246,12 @@ class _JournalPageState extends State<JournalPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.75,
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            itemCount: _notes.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => _NoteCard(
-              note: _notes[index],
-              category: _categoryFor(_notes[index].category),
-            ),
-          ),
-        ),
+      builder: (context) => _AllNotesSheet(
+        token: widget.result.token,
+        initialNotes: List.of(_notes),
+        initialCursor: _notesCursor,
+        hasMore: _hasMoreNotes,
+        categoryFor: _categoryFor,
       ),
     );
   }
@@ -838,8 +859,10 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localDate = note.createdAt.toLocal();
-    final date = '${localDate.day} ${_month(localDate.month)}';
+    final indiaDate = _toIndiaTime(note.createdAt);
+    final date =
+        '${indiaDate.day} ${_month(indiaDate.month)} ${indiaDate.year}';
+    final time = _formatIndiaTime(indiaDate);
     final color = category?.color ?? const Color(0xFF149B78);
     final background = category?.background ?? const Color(0xFFEAF8F4);
     return Container(
@@ -869,7 +892,7 @@ class _NoteCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '${localDate.day}',
+                  '${indiaDate.day}',
                   style: TextStyle(
                     color: color,
                     fontSize: 20,
@@ -877,7 +900,7 @@ class _NoteCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _month(localDate.month),
+                  _month(indiaDate.month),
                   style: TextStyle(color: color, fontSize: 11),
                 ),
               ],
@@ -919,6 +942,24 @@ class _NoteCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 5),
+                if (note.sections.isNotEmpty) ...[
+                  Text(
+                    note.sections
+                        .map(
+                          (section) => section['subcategory'] as String? ?? '',
+                        )
+                        .where((title) => title.isNotEmpty)
+                        .join('  ·  '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   note.text,
                   maxLines: 3,
@@ -931,7 +972,7 @@ class _NoteCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  date,
+                  '$date  ·  $time IST',
                   style: const TextStyle(
                     color: Color(0xFF9AA4B5),
                     fontSize: 10,
@@ -944,6 +985,145 @@ class _NoteCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AllNotesSheet extends StatefulWidget {
+  const _AllNotesSheet({
+    required this.token,
+    required this.initialNotes,
+    required this.initialCursor,
+    required this.hasMore,
+    required this.categoryFor,
+  });
+
+  final String? token;
+  final List<JournalNoteData> initialNotes;
+  final String? initialCursor;
+  final bool hasMore;
+  final _JournalCategory? Function(String name) categoryFor;
+
+  @override
+  State<_AllNotesSheet> createState() => _AllNotesSheetState();
+}
+
+class _AllNotesSheetState extends State<_AllNotesSheet> {
+  late final List<JournalNoteData> _notes = List.of(widget.initialNotes);
+  late String? _cursor = widget.initialCursor;
+  late bool _hasMore = widget.hasMore;
+  bool _isLoading = false;
+  String? _error;
+
+  Future<void> _loadMore() async {
+    final token = widget.token;
+    final cursor = _cursor;
+    if (_isLoading || !_hasMore || token == null || cursor == null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final page = await AuthApi.getJournalNotes(token, cursor: cursor);
+      if (!mounted) return;
+      final knownIds = _notes.map((note) => note.id).toSet();
+      setState(() {
+        _notes.addAll(page.notes.where((note) => !knownIds.contains(note.id)));
+        _cursor = page.nextCursor;
+        _hasMore = page.hasMore;
+      });
+    } on AuthApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.78,
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 2, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'All Notes',
+                style: TextStyle(
+                  color: Color(0xFF203454),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _notes.isEmpty
+                ? const Center(child: Text('Your notes will appear here.'))
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification.metrics.extentAfter < 240 &&
+                          _hasMore &&
+                          !_isLoading) {
+                        _loadMore();
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      itemCount: _notes.length + (_hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _notes.length) {
+                          if (_error != null) {
+                            return TextButton.icon(
+                              onPressed: _loadMore,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Tap to load more notes'),
+                            );
+                          }
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _NoteCard(
+                            note: _notes[index],
+                            category: widget.categoryFor(
+                              _notes[index].category,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFC34B51), fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+DateTime _toIndiaTime(DateTime dateTime) =>
+    dateTime.toUtc().add(const Duration(hours: 5, minutes: 30));
+
+String _formatIndiaTime(DateTime dateTime) {
+  final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+  final minute = dateTime.minute.toString().padLeft(2, '0');
+  final period = dateTime.hour < 12 ? 'AM' : 'PM';
+  return '$hour:$minute $period';
 }
 
 String _month(int month) => const [

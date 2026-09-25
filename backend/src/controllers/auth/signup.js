@@ -14,6 +14,8 @@ export async function signup(request, response) {
   const email = data.email.toLowerCase();
   const username = data.username.toLowerCase();
   const mobileNumber = normalizeMobile(data.mobileNumber);
+  const isTeacher = data.role === 'teacher';
+  const isStudent = data.role === 'student';
   const fatherMobileNumber = data.father.mobileNumber
     ? normalizeMobile(data.father.mobileNumber)
     : null;
@@ -38,17 +40,21 @@ export async function signup(request, response) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, config.bcryptRounds);
-  const isTeacher = data.role === 'teacher';
-  const accountId = isTeacher ? await createTeacherId() : await createStudentId();
+  const accountId = isTeacher
+    ? await createTeacherId()
+    : isStudent
+      ? await createStudentId()
+      : null;
   const user = await User.create({
     ...data,
     email,
     username,
     mobileNumber,
     passwordHash,
-    ...(isTeacher ? { teacherId: accountId } : { studentId: accountId }),
-    father: isTeacher ? undefined : { ...data.father, mobileNumber: fatherMobileNumber },
-    mother: { ...data.mother, mobileNumber: motherMobileNumber },
+    ...(isTeacher ? { teacherId: accountId } : {}),
+    ...(isStudent ? { studentId: accountId } : {}),
+    father: isStudent ? { ...data.father, mobileNumber: fatherMobileNumber } : undefined,
+    mother: isStudent ? { ...data.mother, mobileNumber: motherMobileNumber } : undefined,
   });
 
   response.status(201).json({
