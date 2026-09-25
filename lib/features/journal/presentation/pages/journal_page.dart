@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../authentication/data/auth_api.dart';
 import 'reflection_editor_page.dart';
+import 'journal_reflection_content.dart';
 import 'self_regulation_content.dart';
 import 'self_regulation_topics_page.dart';
 
@@ -188,10 +189,17 @@ class _JournalPageState extends State<JournalPage> {
     var selectedSections = <Map<String, Object?>>[];
     var customText = '';
 
-    if (_selectedCategory == 'Self-Regulation') {
+    final selectedCategory = _selectedCategory ?? 'Reflection';
+    final guidedTopics = selectedCategory == 'Self-Regulation'
+        ? selfRegulationTopics
+        : journalReflectionTopics[selectedCategory];
+    if (guidedTopics != null) {
       final draft = await Navigator.of(context).push<SelfRegulationDraft>(
         MaterialPageRoute<SelfRegulationDraft>(
-          builder: (_) => const SelfRegulationTopicsPage(),
+          builder: (_) => SelfRegulationTopicsPage(
+            category: selectedCategory,
+            topics: guidedTopics,
+          ),
         ),
       );
       if (!mounted || draft == null) return;
@@ -211,7 +219,7 @@ class _JournalPageState extends State<JournalPage> {
           responses: selectedStatements,
           sections: selectedSections,
           customText: customText,
-          showStepProgress: _selectedCategory == 'Self-Regulation',
+          showStepProgress: selectedSections.isNotEmpty,
         ),
       ),
     );

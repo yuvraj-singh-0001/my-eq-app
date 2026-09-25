@@ -30,7 +30,9 @@ export async function listJournalNotes(request, response) {
   const limit = Number.isInteger(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 50)
     : 20;
-  const filter = { owner: request.auth.sub };
+  // Journal entries stay in the student's private space. Connected teachers
+  // and parents use growth feedback endpoints and never query these notes.
+  const filter = { owner: request.auth.sub, isPrivate: true };
   if (request.query.cursor) {
     let cursor;
     try {

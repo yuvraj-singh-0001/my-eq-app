@@ -5,7 +5,14 @@ import 'self_regulation_content.dart';
 import 'self_regulation_behavior_page.dart';
 
 class SelfRegulationTopicsPage extends StatefulWidget {
-  const SelfRegulationTopicsPage({super.key});
+  const SelfRegulationTopicsPage({
+    super.key,
+    this.category = 'Self-Regulation',
+    this.topics = selfRegulationTopics,
+  });
+
+  final String category;
+  final List<SelfRegulationTopic> topics;
 
   @override
   State<SelfRegulationTopicsPage> createState() =>
@@ -35,7 +42,9 @@ class _SelfRegulationTopicsPageState extends State<SelfRegulationTopicsPage> {
   }
 
   void _continue() {
-    Navigator.of(context).pop(SelfRegulationDraft(Map.of(_answers)));
+    Navigator.of(context).pop(
+      SelfRegulationDraft(Map.of(_answers), topics: widget.topics),
+    );
   }
 
   @override
@@ -49,11 +58,11 @@ class _SelfRegulationTopicsPageState extends State<SelfRegulationTopicsPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF7F9FC),
         titleSpacing: 4,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Self-Regulation',
+              widget.category,
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
@@ -90,7 +99,7 @@ class _SelfRegulationTopicsPageState extends State<SelfRegulationTopicsPage> {
         children: [
           const _StepProgress(currentStep: 2),
           const SizedBox(height: 14),
-          for (final topic in selfRegulationTopics) ...[
+          for (final topic in widget.topics) ...[
             _TopicTile(
               topic: topic,
               answer: _answers[topic.id],
@@ -142,7 +151,7 @@ class _SelfRegulationTopicsPageState extends State<SelfRegulationTopicsPage> {
               style: TextStyle(color: Color(0xFF78859B), fontSize: 11),
             ),
             const SizedBox(height: 10),
-            for (final topic in selfRegulationTopics)
+            for (final topic in widget.topics)
               if (_answers[topic.id] != null) ...[
                 SelfRegulationAnswerReview(
                   topic: topic,

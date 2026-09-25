@@ -172,12 +172,16 @@ class SelfRegulationTopicAnswer {
 }
 
 class SelfRegulationDraft {
-  const SelfRegulationDraft(this.answers);
+  const SelfRegulationDraft(
+    this.answers, {
+    this.topics = selfRegulationTopics,
+  });
 
   final Map<String, SelfRegulationTopicAnswer> answers;
+  final List<SelfRegulationTopic> topics;
 
   List<Map<String, Object?>> get sections => [
-    for (final topic in selfRegulationTopics)
+    for (final topic in topics)
       if (answers[topic.id]?.hasAnswer ?? false)
         {
           'subcategoryId': topic.id,
@@ -189,20 +193,20 @@ class SelfRegulationDraft {
   ];
 
   List<String> get selectedStatements => [
-    for (final topic in selfRegulationTopics)
+    for (final topic in topics)
       for (final statement
           in answers[topic.id]?.selectedStatements ?? const <String>[])
         '${topic.title}: $statement',
   ];
 
   String get customText => [
-    for (final topic in selfRegulationTopics)
+    for (final topic in topics)
       if ((answers[topic.id]?.customText ?? '').trim().isNotEmpty)
         '${topic.title}: ${answers[topic.id]!.customText.trim()}',
   ].join('\n');
 
   String toNoteText() => [
-    for (final topic in selfRegulationTopics)
+    for (final topic in topics)
       if (answers[topic.id]?.hasAnswer ?? false) ...[
         topic.title.toUpperCase(),
         if (answers[topic.id]!.selectedStatements.isNotEmpty) 'WHAT I CHOSE',
