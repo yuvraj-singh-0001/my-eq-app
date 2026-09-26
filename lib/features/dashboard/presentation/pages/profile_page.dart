@@ -136,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (role == 'student' || role == 'teacher') {
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => _ConnectionRequestsAndSuggestions(
+          builder: (_) => ConnectionRequestsPage(
             token: token,
             role: role,
             onConnectionsChanged: _loadConnections,
@@ -1217,26 +1217,25 @@ class _ConnectedPeopleCard extends StatelessWidget {
   };
 }
 
-class _ConnectionRequestsAndSuggestions extends StatefulWidget {
-  const _ConnectionRequestsAndSuggestions({
+class ConnectionRequestsPage extends StatefulWidget {
+  const ConnectionRequestsPage({
+    super.key,
     required this.token,
     required this.role,
-    required this.onConnectionsChanged,
-    required this.onInviteParent,
+    this.onConnectionsChanged,
+    this.onInviteParent,
   });
 
   final String token;
   final String role;
-  final VoidCallback onConnectionsChanged;
-  final VoidCallback onInviteParent;
+  final VoidCallback? onConnectionsChanged;
+  final VoidCallback? onInviteParent;
 
   @override
-  State<_ConnectionRequestsAndSuggestions> createState() =>
-      _ConnectionRequestsAndSuggestionsState();
+  State<ConnectionRequestsPage> createState() => _ConnectionRequestsPageState();
 }
 
-class _ConnectionRequestsAndSuggestionsState
-    extends State<_ConnectionRequestsAndSuggestions> {
+class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
   final _searchController = TextEditingController();
   List<GrowthConnectionData> _people = const [];
   List<GrowthConnectionData> _connections = const [];
@@ -1245,7 +1244,6 @@ class _ConnectionRequestsAndSuggestionsState
     outgoing: [],
   );
   bool _loadingPeople = true;
-  bool _loadingRequests = true;
   bool _loadingConnections = true;
   int _peopleSearchRequestId = 0;
   String? _peopleError;
@@ -1323,7 +1321,6 @@ class _ConnectionRequestsAndSuggestionsState
 
   Future<void> _loadRequests() async {
     setState(() {
-      _loadingRequests = true;
       _requestsError = null;
     });
     try {
@@ -1334,13 +1331,11 @@ class _ConnectionRequestsAndSuggestionsState
       if (!mounted) return;
       setState(() {
         _requests = result;
-        _loadingRequests = false;
       });
     } on AuthApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _requestsError = error.message;
-        _loadingRequests = false;
       });
     }
   }
@@ -1356,7 +1351,7 @@ class _ConnectionRequestsAndSuggestionsState
       );
       if (!mounted) return;
       await Future.wait([_loadPeople(_searchController.text), _loadRequests()]);
-      widget.onConnectionsChanged();
+      widget.onConnectionsChanged?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Request sent to ${person.fullName}.')),
@@ -1390,7 +1385,7 @@ class _ConnectionRequestsAndSuggestionsState
         _loadPeople(_searchController.text),
         _loadConnections(),
       ]);
-      widget.onConnectionsChanged();
+      widget.onConnectionsChanged?.call();
     } on AuthApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -1608,7 +1603,8 @@ class _ConnectionRequestsAndSuggestionsState
                       fontSize: 11,
                     ),
                   ),
-                  if (widget.role == 'student') ...[
+                  if (widget.role == 'student' &&
+                      widget.onInviteParent != null) ...[
                     const SizedBox(height: 9),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -1703,11 +1699,6 @@ class _ConnectionRequestsAndSuggestionsState
                             ),
                           ),
                         ),
-                      if (_loadingRequests)
-                        const SizedBox.square(
-                          dimension: 15,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
                     ],
                   ),
                   if (_requestsError != null)
@@ -1717,7 +1708,6 @@ class _ConnectionRequestsAndSuggestionsState
                     ),
                   if (_requests.incoming.isEmpty &&
                       _requests.outgoing.isEmpty &&
-                      !_loadingRequests &&
                       _requestsError == null)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 10),

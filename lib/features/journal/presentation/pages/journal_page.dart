@@ -126,11 +126,13 @@ class _JournalPageState extends State<JournalPage> {
   String? _notesError;
   bool _hasMoreNotes = false;
   String? _notesCursor;
+  int _pendingConnectionRequests = 0;
 
   @override
   void initState() {
     super.initState();
     _loadNotes();
+    _loadConnectionRequests();
   }
 
   @override
@@ -173,6 +175,37 @@ class _JournalPageState extends State<JournalPage> {
         _notesError = error.message;
       });
     }
+  }
+
+  Future<void> _loadConnectionRequests() async {
+    final token = widget.result.token;
+    if (token == null || token.isEmpty || widget.result.role != 'student') {
+      return;
+    }
+    try {
+      final requests = await AuthApi.getGrowthConnectionRequests(
+        token: token,
+        role: widget.result.role,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pendingConnectionRequests = requests.incoming.length;
+      });
+    } on AuthApiException {
+      // Keep the card responsive and show the last known count on network errors.
+    }
+  }
+
+  Future<void> _openConnectionRequests() async {
+    final token = widget.result.token;
+    if (token == null || token.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ConnectionRequestsPage(token: token, role: widget.result.role),
+      ),
+    );
+    if (mounted) _loadConnectionRequests();
   }
 
   Future<void> _goToNext() async {
@@ -299,7 +332,9 @@ class _JournalPageState extends State<JournalPage> {
         body: SafeArea(
           bottom: false,
           child: RefreshIndicator(
-            onRefresh: _loadNotes,
+            onRefresh: () async {
+              await Future.wait([_loadNotes(), _loadConnectionRequests()]);
+            },
             child: CustomScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               slivers: [
@@ -330,6 +365,18 @@ class _JournalPageState extends State<JournalPage> {
                   ),
                   sliver: SliverToBoxAdapter(child: _buildTitleAndPrivacy()),
                 ),
+                if (widget.result.role == 'student')
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      10,
+                      horizontalPadding,
+                      0,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildConnectionRequestsCard(),
+                    ),
+                  ),
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     horizontalPadding,
@@ -539,6 +586,11 @@ class _JournalPageState extends State<JournalPage> {
       ],
     );
   }
+
+  Widget _buildConnectionRequestsCard() => _PendingRequestsCard(
+    count: _pendingConnectionRequests,
+    onTap: _openConnectionRequests,
+  );
 
   Widget _buildCategoryGrid(double width) {
     final columns = width < 350 ? 3 : 4;
@@ -790,6 +842,124 @@ class _JournalPageState extends State<JournalPage> {
   }
 }
 
+class _PendingRequestsCard extends StatefulWidget {
+  const _PendingRequestsCard({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  State<_PendingRequestsCard> createState() => _PendingRequestsCardState();
+}
+
+class _PendingRequestsCardState extends State<_PendingRequestsCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEEF8FF), Color(0xFFF7F4FF)],
+        ),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: const Color(0xFFDCEBFA)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF264A78)
+                .withValues(alpha: _hovered ? .11 : .05),
+            blurRadius: _hovered ? 16 : 10,
+            offset: Offset(0, _hovered ? 6 : 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(17),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4F0FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.person_add_alt_1_rounded,
+                    color: Color(0xFF3979C4),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Connection requests',
+                        style: TextStyle(
+                          color: Color(0xFF203454),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.count == 0
+                            ? 'No pending requests'
+                            : '${widget.count} waiting for your response',
+                        style: const TextStyle(
+                          color: Color(0xFF78859B),
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.count > 0)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 24),
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE75266),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${widget.count}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 5),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF7890AE),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _JournalCategory {
   const _JournalCategory(this.name, this.icon, this.color, this.background);
   final String name;
@@ -956,9 +1126,13 @@ class _NoteCard extends StatelessWidget {
                     spacing: 5,
                     runSpacing: 5,
                     children: [
-                      for (final title in note.sections
-                          .map((section) => section['subcategory'] as String? ?? '')
-                          .where((title) => title.isNotEmpty))
+                      for (final title
+                          in note.sections
+                              .map(
+                                (section) =>
+                                    section['subcategory'] as String? ?? '',
+                              )
+                              .where((title) => title.isNotEmpty))
                         Container(
                           constraints: const BoxConstraints(maxWidth: 190),
                           padding: const EdgeInsets.symmetric(
