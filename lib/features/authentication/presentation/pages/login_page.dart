@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
+import '../../data/auth_session.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
 import 'signup_page.dart';
@@ -66,6 +67,8 @@ class _LoginPageState extends State<LoginPage> {
         role: roleString,
       );
       if (!mounted) return;
+      await AuthSession.save(result);
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -76,9 +79,7 @@ class _LoginPageState extends State<LoginPage> {
           ? JournalPage(result: result)
           : DashboardPage(result: result);
       await Navigator.of(context).pushReplacement<void, void>(
-        MaterialPageRoute<void>(
-          builder: (_) => destination,
-        ),
+        MaterialPageRoute<void>(builder: (_) => destination),
       );
     } on AuthApiException catch (error) {
       if (!mounted) return;
@@ -327,14 +328,14 @@ class _LoginFormPanel extends StatelessWidget {
     final fieldLabel = selectedRole == 1
         ? 'Teacher ID, Username, Email, or Mobile'
         : (selectedRole == 0
-            ? 'Student ID, Username, Email, or Mobile'
-            : 'Mobile Number or Email');
+              ? 'Student ID, Username, Email, or Mobile'
+              : 'Mobile Number or Email');
 
     final hintText = selectedRole == 1
         ? 'Enter Teacher ID, email, or mobile'
         : (selectedRole == 0
-            ? 'Enter Student ID, email, or mobile'
-            : 'Enter mobile number or email');
+              ? 'Enter Student ID, email, or mobile'
+              : 'Enter mobile number or email');
 
     final prefixIcon = selectedRole == 1
         ? Icons.badge_outlined
@@ -866,7 +867,10 @@ class _LoginSuccessDialog extends StatelessWidget {
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 14,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8F9FC),
                   borderRadius: BorderRadius.circular(12),

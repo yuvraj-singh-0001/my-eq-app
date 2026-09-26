@@ -5,9 +5,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class AuthApiException implements Exception {
-  const AuthApiException(this.message);
+  const AuthApiException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 }
 
 class SignupResult {
@@ -564,6 +565,7 @@ class AuthApi {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AuthApiException(
           body['message'] as String? ?? 'Your profile could not be loaded.',
+          statusCode: response.statusCode,
         );
       }
       final user = body['data']?['user'] as Map<String, dynamic>?;

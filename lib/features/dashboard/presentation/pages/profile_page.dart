@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../authentication/data/auth_api.dart';
+import '../../../authentication/data/auth_session.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
+import '../../../home/presentation/pages/home_page.dart';
 import 'profile_edit_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -15,6 +17,13 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _accountDetailsKey = GlobalKey();
+  final _schoolDetailsKey = GlobalKey();
+  final _familyDetailsKey = GlobalKey();
+  final _connectionsKey = GlobalKey();
+  final _privacyKey = GlobalKey();
+  final _journalKey = GlobalKey();
   UserProfileData? _profile;
   final List<JournalNoteData> _notes = [];
   List<GrowthConnectionData> _connections = const [];
@@ -292,8 +301,228 @@ class _ProfilePageState extends State<ProfilePage> {
             ProfileEditPage(token: token, profile: _profile ?? _cachedProfile),
       ),
     );
-    if (mounted && updated != null) setState(() => _profile = updated);
+    if (!mounted || updated == null) return;
+    setState(() => _profile = updated);
+    await AuthSession.save(
+      LoginResult(
+        fullName: updated.fullName,
+        role: updated.role,
+        studentId: updated.studentId,
+        teacherId: updated.teacherId,
+        email: updated.email,
+        username: updated.username,
+        token: token,
+      ),
+    );
   }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.logout_rounded, color: Color(0xFFE34D5B)),
+        title: const Text('Log out?'),
+        content: const Text('You can sign in again whenever you are ready.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Stay signed in'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE34D5B),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await AuthSession.clear();
+    } catch (_) {
+      // Still take the user back to the welcome page if local storage fails.
+    }
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      (_) => false,
+    );
+    messenger.showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('You have logged out successfully.'),
+      ),
+    );
+  }
+
+  Future<void> _openProfileSection(GlobalKey key) async {
+    Navigator.of(context).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    final targetContext = key.currentContext;
+    if (targetContext == null || !targetContext.mounted) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutCubic,
+      alignment: 0.08,
+    );
+  }
+
+  Widget _settingsDrawer(UserProfileData profile, bool isStudent) => Drawer(
+    backgroundColor: const Color(0xFFF7FAFC),
+    child: SafeArea(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 22, 16, 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE6F7F2), Color(0xFFEAF2FF)],
+              ),
+            ),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person_rounded, color: Color(0xFF149B78)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF203454),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$_roleName${_accountId == null ? '' : '  ·  ID $_accountId'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF78859B),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              children: [
+                _profileMenuItem(
+                  Icons.manage_accounts_outlined,
+                  'Edit profile',
+                  () {
+                    Navigator.of(context).pop();
+                    _editProfile();
+                  },
+                ),
+                _profileMenuItem(
+                  Icons.verified_user_outlined,
+                  'Account details',
+                  () => _openProfileSection(_accountDetailsKey),
+                ),
+                if (isStudent || profile.role == 'teacher')
+                  _profileMenuItem(
+                    Icons.school_outlined,
+                    isStudent ? 'School information' : 'Work information',
+                    () => _openProfileSection(_schoolDetailsKey),
+                  ),
+                if (isStudent)
+                  _profileMenuItem(
+                    Icons.family_restroom_outlined,
+                    'Family contacts',
+                    () => _openProfileSection(_familyDetailsKey),
+                  ),
+                if (const {
+                  'student',
+                  'teacher',
+                  'parent',
+                }.contains(profile.role))
+                  _profileMenuItem(
+                    Icons.groups_outlined,
+                    'Connected people',
+                    () => _openProfileSection(_connectionsKey),
+                  ),
+                _profileMenuItem(
+                  Icons.lock_outline_rounded,
+                  'Privacy & safety',
+                  () => _openProfileSection(_privacyKey),
+                ),
+                if (isStudent)
+                  _profileMenuItem(
+                    Icons.menu_book_outlined,
+                    'Journal history',
+                    () => _openProfileSection(_journalKey),
+                  ),
+                _profileMenuItem(Icons.refresh_rounded, 'Refresh profile', () {
+                  Navigator.of(context).pop();
+                  _loadProfile();
+                }),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Log out'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFE34D5B),
+                  side: const BorderSide(color: Color(0xFFF2C6CB)),
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _profileMenuItem(IconData icon, String title, VoidCallback onTap) =>
+      ListTile(
+        leading: Icon(icon, color: const Color(0xFF149B78), size: 21),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF304361),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF9AA7B8),
+        ),
+        onTap: onTap,
+        dense: true,
+      );
 
   String get _roleName {
     final role = (_profile?.role ?? widget.result.role).toLowerCase();
@@ -363,6 +592,8 @@ class _ProfilePageState extends State<ProfilePage> {
     ];
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _settingsDrawer(profile, isStudent),
       backgroundColor: const Color(0xFFF6F9FC),
       appBar: AppBar(
         title: const Column(
@@ -384,9 +615,9 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Refresh profile',
-            onPressed: _isLoading ? null : _loadProfile,
-            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Profile settings',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -466,6 +697,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                     const SizedBox(height: 16),
                     _ProfileInfoCard(
+                      key: _accountDetailsKey,
                       title: 'Account details',
                       icon: Icons.verified_user_outlined,
                       rows: [...details],
@@ -474,6 +706,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (isStudent) ...[
                       const SizedBox(height: 12),
                       _ProfileInfoCard(
+                        key: _schoolDetailsKey,
                         title: 'School information',
                         icon: Icons.school_outlined,
                         rows: studentDetails,
@@ -483,6 +716,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (!isStudent && profile.role == 'teacher') ...[
                       const SizedBox(height: 12),
                       _ProfileInfoCard(
+                        key: _schoolDetailsKey,
                         title: 'Work information',
                         icon: Icons.work_outline_rounded,
                         rows: teacherDetails,
@@ -492,6 +726,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (isStudent) ...[
                       const SizedBox(height: 12),
                       _ProfileInfoCard(
+                        key: _familyDetailsKey,
                         title: 'Family contacts',
                         icon: Icons.family_restroom_outlined,
                         rows: familyDetails,
@@ -505,6 +740,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     }.contains(profile.role)) ...[
                       const SizedBox(height: 12),
                       _ConnectedPeopleCard(
+                        key: _connectionsKey,
                         people: _connections.take(2).toList(growable: false),
                         totalCount: _connections.length,
                         isLoading: _isLoadingConnections,
@@ -517,10 +753,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    const _PrivacyCard(),
+                    _PrivacyCard(key: _privacyKey),
                     if (isStudent) ...[
                       const SizedBox(height: 18),
-                      _buildJournalHistory(),
+                      KeyedSubtree(
+                        key: _journalKey,
+                        child: _buildJournalHistory(),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     Container(
@@ -547,6 +786,20 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _logout,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Log out'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE34D5B),
+                        side: const BorderSide(color: Color(0xFFF2C6CB)),
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
                       ),
                     ),
                   ],
@@ -930,6 +1183,7 @@ class _ProfileHero extends StatelessWidget {
 
 class _ProfileInfoCard extends StatelessWidget {
   const _ProfileInfoCard({
+    super.key,
     required this.title,
     required this.icon,
     required this.rows,
@@ -1036,6 +1290,7 @@ class _ProfileInfoCard extends StatelessWidget {
 
 class _ConnectedPeopleCard extends StatelessWidget {
   const _ConnectedPeopleCard({
+    super.key,
     required this.people,
     required this.totalCount,
     required this.isLoading,
@@ -2405,7 +2660,7 @@ class _SmallConnectionMessage extends StatelessWidget {
 }
 
 class _PrivacyCard extends StatelessWidget {
-  const _PrivacyCard();
+  const _PrivacyCard({super.key});
 
   @override
   Widget build(BuildContext context) => Container(

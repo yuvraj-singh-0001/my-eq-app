@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
+import '../../data/auth_session.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
 
@@ -162,7 +163,9 @@ class _SignupPageState extends State<SignupPage> {
     Navigator.of(context).maybePop();
   }
 
-  void _openDashboard() {
+  Future<void> _openDashboard() async {
+    await AuthSession.save(_loginResult());
+    if (!mounted) return;
     Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute<void>(
         builder: (_) => DashboardPage(result: _loginResult()),
