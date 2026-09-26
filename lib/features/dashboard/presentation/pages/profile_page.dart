@@ -6,6 +6,7 @@ import '../../../authentication/data/auth_session.dart';
 import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import 'profile_edit_page.dart';
+import '../../../journal/presentation/pages/journal_note_detail_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, required this.result});
@@ -108,6 +109,16 @@ class _ProfilePageState extends State<ProfilePage> {
         _isLoadingNotes = false;
       });
     }
+  }
+
+  Future<void> _openJournalNote(JournalNoteData note) async {
+    final token = widget.result.token;
+    if (token == null || token.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => JournalNoteDetailPage(token: token, initialNote: note),
+      ),
+    );
   }
 
   Future<void> _loadConnections() async {
@@ -878,7 +889,11 @@ class _ProfilePageState extends State<ProfilePage> {
           text: 'Your saved reflections will appear here.',
         )
       else ...[
-        for (final note in _notes) _JournalHistoryCard(note: note),
+        for (final note in _notes)
+          _JournalHistoryCard(
+            note: note,
+            onTap: () => _openJournalNote(note),
+          ),
         if (_notesError != null)
           _JournalHistoryMessage(
             text: _notesError!,
@@ -905,9 +920,10 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _JournalHistoryCard extends StatelessWidget {
-  const _JournalHistoryCard({required this.note});
+  const _JournalHistoryCard({required this.note, required this.onTap});
 
   final JournalNoteData note;
+  final VoidCallback onTap;
 
   String _timestamp(DateTime date) {
     final indiaTime = date.toUtc().add(const Duration(hours: 5, minutes: 30));
@@ -938,22 +954,28 @@ class _JournalHistoryCard extends StatelessWidget {
         .map((section) => section['subcategory'] as String? ?? '')
         .where((topic) => topic.trim().isNotEmpty)
         .toList(growable: false);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: const Color(0xFFE7ECF2)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x070B2B4B),
-            blurRadius: 9,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: const Color(0xFFE7ECF2)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x070B2B4B),
+                  blurRadius: 9,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -1021,6 +1043,9 @@ class _JournalHistoryCard extends StatelessWidget {
             ),
           ],
         ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2478,6 +2503,14 @@ class _ConnectedStudentJournalPageState
     return '${local.day} ${months[local.month - 1]} ${local.year}';
   }
 
+  String _timestamp(DateTime date) {
+    final local = date.toUtc().add(const Duration(hours: 5, minutes: 30));
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour < 12 ? 'AM' : 'PM';
+    return '${_date(date)}  ·  $hour:$minute $period IST';
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: const Color(0xFFF6F9FC),
@@ -2501,139 +2534,474 @@ class _ConnectedStudentJournalPageState
       ),
     ),
     body: SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _loadNotes,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Center(
+          child: SizedBox(
+            width: constraints.maxWidth > 820 ? 820 : constraints.maxWidth,
+            child: RefreshIndicator(
+              onRefresh: _loadNotes,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF7F4),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.lock_open_rounded,
+                          color: Color(0xFF149B78),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Connected reflection notes · ID ${widget.student.accountId ?? 'Not added'}',
+                            style: const TextStyle(
+                              color: Color(0xFF42665E),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_loading && _notes.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(30),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null && _notes.isEmpty)
+                    _JournalHistoryMessage(
+                      text: _error!,
+                      buttonText: 'Try again',
+                      onPressed: _loadNotes,
+                    )
+                  else if (_notes.isEmpty)
+                    const _JournalHistoryMessage(
+                      text: 'This student has not saved any reflection notes yet.',
+                    )
+                  else ...[
+                    for (final note in _notes)
+                      _ConnectedReflectionCard(
+                        note: note,
+                        timestamp: _timestamp(note.createdAt),
+                      ),
+                    if (_error != null)
+                      _JournalHistoryMessage(
+                        text: _error!,
+                        buttonText: 'Try again',
+                        onPressed: () => _loadNotes(append: true),
+                      ),
+                    if (_hasMore)
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _loadingMore
+                              ? null
+                              : () => _loadNotes(append: true),
+                          icon: _loadingMore
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.expand_more_rounded),
+                          label: Text(
+                            _loadingMore ? 'Loading...' : 'Load more notes',
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ConnectedReflectionCard extends StatelessWidget {
+  const _ConnectedReflectionCard({required this.note, required this.timestamp});
+
+  final JournalNoteData note;
+  final String timestamp;
+
+  List<String> _strings(Object? value) => value is List
+      ? value
+            .whereType<String>()
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList()
+      : const [];
+
+  String? _extraReflection() {
+    final lines = note.text.split('\n');
+    final index = lines.indexWhere(
+      (line) => line.trim().toUpperCase() == 'MY REFLECTION',
+    );
+    if (index < 0) return null;
+    final text = lines.skip(index + 1).join('\n').trim();
+    return text.isEmpty ? null : text;
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(21),
+      border: Border.all(color: const Color(0xFFE5EBF2)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x090B2B4B),
+          blurRadius: 16,
+          offset: Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF7F4),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFFE7F7F2),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: Row(
+              child: const Icon(
+                Icons.auto_stories_rounded,
+                color: Color(0xFF149B78),
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lock_open_rounded, color: Color(0xFF149B78)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Connected reflection notes · ID ${widget.student.accountId ?? 'Not added'}',
-                      style: const TextStyle(
-                        color: Color(0xFF42665E),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Text(
+                    note.category,
+                    style: const TextStyle(
+                      color: Color(0xFF203454),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    timestamp,
+                    style: const TextStyle(
+                      color: Color(0xFF8290A5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            if (_loading && _notes.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(30),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null && _notes.isEmpty)
-              _JournalHistoryMessage(
-                text: _error!,
-                buttonText: 'Try again',
-                onPressed: _loadNotes,
-              )
-            else if (_notes.isEmpty)
-              const _JournalHistoryMessage(
-                text: 'This student has not saved any reflection notes yet.',
-              )
-            else ...[
-              for (final note in _notes)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFE7ECF2)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x070B2B4B),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.menu_book_rounded,
-                            color: Color(0xFF149B78),
-                            size: 19,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              note.category,
-                              style: const TextStyle(
-                                color: Color(0xFF203454),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            _date(note.createdAt),
-                            style: const TextStyle(
-                              color: Color(0xFF78859B),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 22),
-                      SelectableText(
-                        note.text,
-                        style: const TextStyle(
-                          color: Color(0xFF34445D),
-                          fontSize: 12,
-                          height: 1.55,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (_error != null)
-                _JournalHistoryMessage(
-                  text: _error!,
-                  buttonText: 'Try again',
-                  onPressed: () => _loadNotes(append: true),
-                ),
-              if (_hasMore)
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _loadingMore
-                        ? null
-                        : () => _loadNotes(append: true),
-                    icon: _loadingMore
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.expand_more_rounded),
-                    label: Text(
-                      _loadingMore ? 'Loading...' : 'Load more notes',
-                    ),
-                  ),
-                ),
-            ],
+            if (note.mood != null && note.mood!.isNotEmpty)
+              _moodBadge(note.mood!),
           ],
         ),
-      ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Divider(height: 1, color: Color(0xFFEEF1F5)),
+        ),
+        if (note.sections.isNotEmpty) ...[
+          for (var index = 0; index < note.sections.length; index++) ...[
+            _section(note.sections[index], index + 1),
+            if (index != note.sections.length - 1)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 13),
+                child: Divider(height: 1, color: Color(0xFFF0F2F6)),
+              ),
+          ],
+          if (_extraReflection() case final reflection?) ...[
+            const SizedBox(height: 14),
+            _label('My reflection'),
+            const SizedBox(height: 6),
+            SelectableText(
+              reflection,
+              style: const TextStyle(
+                color: Color(0xFF34445D),
+                fontSize: 13,
+                height: 1.55,
+              ),
+            ),
+          ],
+        ] else if (note.text.trim().isNotEmpty)
+          _legacyText(note.text)
+        else
+          _legacyContent(),
+      ],
     ),
   );
+
+  Widget _section(Map<String, dynamic> section, int index) {
+    final title = section['subcategory']?.toString().trim();
+    final statements = _strings(section['selectedStatements']);
+    final feelings = _strings(section['feelings']);
+    final ownWords = section['customText']?.toString().trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 25,
+              height: 25,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEAF7F4),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$index',
+                style: const TextStyle(
+                  color: Color(0xFF149B78),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                title?.isNotEmpty == true ? title! : 'Reflection topic',
+                style: const TextStyle(
+                  color: Color(0xFF203454),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (statements.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _label('What I chose'),
+          const SizedBox(height: 5),
+          for (final statement in statements) _bullet(statement),
+        ],
+        if (feelings.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _label('How it feels'),
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [for (final feeling in feelings) _feelingChip(feeling)],
+          ),
+        ],
+        if (ownWords.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _label('In my own words'),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FC),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: const Color(0xFFEBF0F5)),
+            ),
+            child: SelectableText(
+              ownWords,
+              style: const TextStyle(
+                color: Color(0xFF34445D),
+                fontSize: 12.5,
+                height: 1.55,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _legacyContent() {
+    final responses = note.responses;
+    final customText = note.customText.trim();
+    if (responses.isEmpty && customText.isEmpty) {
+      return _legacyText(note.text);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (responses.isNotEmpty) ...[
+          _label('What I chose'),
+          const SizedBox(height: 6),
+          for (final response in responses) _bullet(response),
+        ],
+        if (customText.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _label('In my own words'),
+          const SizedBox(height: 6),
+          SelectableText(
+            customText,
+            style: const TextStyle(
+              color: Color(0xFF34445D),
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _legacyText(String text) {
+    final lines = text.split('\n');
+    const labels = {
+      'WHAT I CHOSE': 'What I chose',
+      'HOW IT FEELS': 'How it feels',
+      'IN MY OWN WORDS': 'In my own words',
+      'HELPFUL HABITS': 'Helpful habits',
+      'MY REFLECTION': 'My reflection',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final rawLine in lines)
+          if (rawLine.trim().isNotEmpty) ...[
+            if (labels.containsKey(rawLine.trim().toUpperCase())) ...[
+              if (rawLine != lines.first) const SizedBox(height: 8),
+              _label(labels[rawLine.trim().toUpperCase()]!),
+              const SizedBox(height: 4),
+            ] else if (rawLine.trimLeft().startsWith('•') ||
+                rawLine.trimLeft().startsWith('-'))
+              _bullet(rawLine.trim().replaceFirst(RegExp(r'^[•-]\s*'), ''))
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: SelectableText(
+                  rawLine.trim(),
+                  style: TextStyle(
+                    color: Color(0xFF34445D),
+                    fontSize: _looksLikeHeading(rawLine) ? 13 : 12.5,
+                    fontWeight: _looksLikeHeading(rawLine)
+                        ? FontWeight.w800
+                        : FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+          ],
+      ],
+    );
+  }
+
+  bool _looksLikeHeading(String line) {
+    final value = line.trim();
+    final letters = value.replaceAll(RegExp(r'[^A-Za-z]'), '');
+    return value.length < 72 &&
+        letters.isNotEmpty &&
+        value == value.toUpperCase() &&
+        !value.startsWith('•') &&
+        !value.startsWith('-');
+  }
+
+  Widget _label(String text) => Text(
+    text.toUpperCase(),
+    style: const TextStyle(
+      color: Color(0xFF71809A),
+      fontSize: 10,
+      letterSpacing: .65,
+      fontWeight: FontWeight.w800,
+    ),
+  );
+
+  Widget _bullet(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Icon(Icons.circle, size: 6, color: Color(0xFF18A483)),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: SelectableText(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF34445D),
+              fontSize: 12.5,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _feelingChip(String feeling) {
+    final emoji = switch (feeling.toLowerCase()) {
+      'worried' => '😟',
+      'angry' => '😠',
+      'sad' => '😞',
+      'disappointed' => '😔',
+      'frustrated' => '😣',
+      'quiet' => '😶',
+      'confused' => '😕',
+      'calm after some time' => '😌',
+      _ => '💭',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3EAF8)),
+      ),
+      child: Text(
+        '$emoji  $feeling',
+        style: const TextStyle(
+          color: Color(0xFF435673),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _moodBadge(String mood) {
+    final color = switch (mood.toLowerCase()) {
+      'great' || 'good' => const Color(0xFF149B78),
+      'okay' => const Color(0xFF3979C4),
+      _ => const Color(0xFFCB7B36),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        mood,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 }
 
 class _SmallConnectionMessage extends StatelessWidget {

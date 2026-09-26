@@ -256,6 +256,43 @@ class JournalNoteData {
   }
 }
 
+class JournalNoteViewerData {
+  const JournalNoteViewerData({
+    required this.id,
+    required this.fullName,
+    required this.role,
+    required this.accountId,
+    required this.lastViewedAt,
+  });
+
+  final String id;
+  final String fullName;
+  final String role;
+  final String accountId;
+  final DateTime? lastViewedAt;
+
+  factory JournalNoteViewerData.fromJson(Map<String, dynamic> json) =>
+      JournalNoteViewerData(
+        id: json['id']?.toString() ?? '',
+        fullName: json['fullName'] as String? ?? 'Connected person',
+        role: json['role'] as String? ?? '',
+        accountId: json['accountId'] as String? ?? '',
+        lastViewedAt: DateTime.tryParse(json['lastViewedAt'] as String? ?? ''),
+      );
+}
+
+class JournalNoteDetailData {
+  const JournalNoteDetailData({
+    required this.note,
+    required this.viewCount,
+    required this.viewers,
+  });
+
+  final JournalNoteData note;
+  final int viewCount;
+  final List<JournalNoteViewerData> viewers;
+}
+
 class JournalNotesPage {
   const JournalNotesPage({
     required this.notes,
@@ -844,6 +881,47 @@ class AuthApi {
       );
     } on FormatException {
       throw const AuthApiException('The server returned invalid notes data.');
+    }
+  }
+
+  static Future<JournalNoteDetailData> getJournalNoteDetail({
+    required String token,
+    required String noteId,
+  }) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/student/journal/notes/$noteId'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'This note could not be loaded.',
+        );
+      }
+      final data = body['data'] as Map<String, dynamic>? ?? const {};
+      final views = data['views'] as Map<String, dynamic>? ?? const {};
+      final note = data['note'] as Map<String, dynamic>? ?? const {};
+      return JournalNoteDetailData(
+        note: JournalNoteData.fromJson(note),
+        viewCount: views['count'] as int? ?? 0,
+        viewers: (views['viewers'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(JournalNoteViewerData.fromJson)
+            .toList(growable: false),
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load this note.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load this note.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading the note timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid note data.');
     }
   }
 

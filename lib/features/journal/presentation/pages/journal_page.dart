@@ -8,6 +8,7 @@ import 'reflection_editor_page.dart';
 import 'journal_reflection_content.dart';
 import 'self_regulation_content.dart';
 import 'self_regulation_topics_page.dart';
+import 'journal_note_detail_page.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key, required this.result});
@@ -302,6 +303,16 @@ class _JournalPageState extends State<JournalPage> {
         initialCursor: _notesCursor,
         hasMore: _hasMoreNotes,
         categoryFor: _categoryFor,
+      ),
+    );
+  }
+
+  Future<void> _openNote(JournalNoteData note) async {
+    final token = widget.result.token;
+    if (token == null || token.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => JournalNoteDetailPage(token: token, initialNote: note),
       ),
     );
   }
@@ -827,7 +838,11 @@ class _JournalPageState extends State<JournalPage> {
         ),
         const SizedBox(height: 8),
         for (final note in _notes.take(2)) ...[
-          _NoteCard(note: note, category: _categoryFor(note.category)),
+          _NoteCard(
+            note: note,
+            category: _categoryFor(note.category),
+            onTap: () => _openNote(note),
+          ),
           const SizedBox(height: 8),
         ],
       ],
@@ -1040,9 +1055,10 @@ class _MoodPicker extends StatelessWidget {
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note, required this.category});
+  const _NoteCard({required this.note, required this.category, this.onTap});
   final JournalNoteData note;
   final _JournalCategory? category;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1052,18 +1068,17 @@ class _NoteCard extends StatelessWidget {
     final time = _formatIndiaTime(indiaDate);
     final color = category?.color ?? const Color(0xFF149B78);
     final background = category?.background ?? const Color(0xFFEAF8F4);
-    return Container(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x080B2B4B),
-            blurRadius: 12,
-            offset: Offset(0, 3),
-          ),
-        ],
+        boxShadow: const [BoxShadow(color: Color(0x080B2B4B), blurRadius: 12, offset: Offset(0, 3))],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1169,6 +1184,8 @@ class _NoteCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }
@@ -1282,6 +1299,16 @@ class _AllNotesSheetState extends State<_AllNotesSheet> {
                             category: widget.categoryFor(
                               _notes[index].category,
                             ),
+                            onTap: widget.token == null
+                                ? null
+                                : () => Navigator.of(context).push<void>(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => JournalNoteDetailPage(
+                                        token: widget.token!,
+                                        initialNote: _notes[index],
+                                      ),
+                                    ),
+                                  ),
                           ),
                         );
                       },

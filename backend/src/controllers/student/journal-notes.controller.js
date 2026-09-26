@@ -1,4 +1,5 @@
 import { JournalNote } from '../../models/journal-notes.js';
+import { JournalNoteView } from '../../models/journal-note-view.js';
 import { User } from '../../models/users.js';
 import { createHttpError } from '../auth/auth.helpers.js';
 import mongoose from 'mongoose';
@@ -74,6 +75,44 @@ export async function listJournalNotes(request, response) {
   });
 }
 
+export async function getOwnJournalNoteDetail(request, response) {
+  ensureStudent(request);
+  if (!mongoose.isValidObjectId(request.params.noteId)) {
+    throw createHttpError(400, 'That journal note is invalid.');
+  }
+  const note = await JournalNote.findOne({
+    _id: request.params.noteId,
+    owner: request.auth.sub,
+    isPrivate: true,
+  }).lean();
+  if (!note) throw createHttpError(404, 'This journal note could not be found.');
+
+  const [count, viewers] = await Promise.all([
+    JournalNoteView.countDocuments({ note: note._id }),
+    JournalNoteView.find({ note: note._id })
+      .sort({ lastViewedAt: -1 })
+      .limit(100)
+      .populate('viewer', 'fullName role studentId teacherId username')
+      .lean(),
+  ]);
+  return response.json({
+    success: true,
+    data: {
+      note: toClientNote(note),
+      views: {
+        count,
+        viewers: viewers.map((view) => ({
+          id: view.viewer?._id?.toString() ?? '',
+          fullName: view.viewer?.fullName ?? 'Connected person',
+          role: view.viewer?.role ?? '',
+          accountId: view.viewer?.studentId ?? view.viewer?.teacherId ?? view.viewer?.username ?? '',
+          lastViewedAt: view.lastViewedAt,
+        })),
+      },
+    },
+  });
+}
+
 export async function listConnectedStudentJournalNotes(request, response) {
   ensureStudent(request);
   if (!mongoose.isValidObjectId(request.params.studentId)) {
@@ -125,6 +164,25 @@ export async function listConnectedStudentJournalNotes(request, response) {
     .lean();
   const hasMore = rows.length > limit;
   const notes = hasMore ? rows.slice(0, limit) : rows;
+  if (notes.length) {
+    const viewedAt = new Date();
+    try {
+      await JournalNoteView.bulkWrite(notes.map((note) => ({
+        updateOne: {
+          filter: { note: note._id, viewer: viewer._id },
+          update: {
+            $set: { owner: connectedStudent._id, lastViewedAt: viewedAt },
+            $setOnInsert: { firstViewedAt: viewedAt },
+          },
+          upsert: true,
+        },
+      })), { ordered: false });
+    } catch (error) {
+      const duplicateOnly = error.writeErrors?.length &&
+        error.writeErrors.every((writeError) => writeError.code === 11000);
+      if (!duplicateOnly) throw error;
+    }
+  }
   const lastNote = notes.at(-1);
   const nextCursor = hasMore && lastNote
     ? Buffer.from(JSON.stringify({

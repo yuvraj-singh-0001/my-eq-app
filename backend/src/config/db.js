@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { config } from './config.js';
 import { User } from '../models/users.js';
 import { JournalNote } from '../models/journal-notes.js';
+import { JournalNoteView } from '../models/journal-note-view.js';
 import { GrowthFeedback } from '../models/growth-feedback.js';
 import { GrowthConnectionInvite } from '../models/growth-connection-invite.js';
 import { GrowthConnectionRequest } from '../models/growth-connection-request.js';
@@ -16,6 +17,7 @@ export async function connectDatabase() {
   await Promise.all([
     User.createIndexes(),
     JournalNote.createIndexes(),
+    JournalNoteView.createIndexes(),
     GrowthFeedback.createIndexes(),
     GrowthConnectionInvite.createIndexes(),
     GrowthConnectionRequest.createIndexes(),
