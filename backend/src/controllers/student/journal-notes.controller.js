@@ -1,4 +1,5 @@
 import { JournalNote } from '../../models/journal-notes.js';
+import { User } from '../../models/users.js';
 import { createHttpError } from '../auth/auth.helpers.js';
 import mongoose from 'mongoose';
 
@@ -30,8 +31,8 @@ export async function listJournalNotes(request, response) {
   const limit = Number.isInteger(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 50)
     : 20;
-  // Journal entries stay in the student's private space. Connected teachers
-  // and parents use growth feedback endpoints and never query these notes.
+  // The default journal endpoint is owner-only. A separate peer endpoint
+  // checks an accepted student connection before returning shared reflections.
   const filter = { owner: request.auth.sub, isPrivate: true };
   if (request.query.cursor) {
     let cursor;
@@ -70,6 +71,74 @@ export async function listJournalNotes(request, response) {
   return response.json({
     success: true,
     data: { notes: notes.map(toClientNote), nextCursor, hasMore },
+  });
+}
+
+export async function listConnectedStudentJournalNotes(request, response) {
+  ensureStudent(request);
+  if (!mongoose.isValidObjectId(request.params.studentId)) {
+    throw createHttpError(400, 'That student profile is invalid.');
+  }
+  const [viewer, connectedStudent] = await Promise.all([
+    User.findById(request.auth.sub).select('role linkedPeers').lean(),
+    User.findById(request.params.studentId).select('role linkedPeers').lean(),
+  ]);
+  const viewerHasStudent = viewer?.linkedPeers?.some(
+    (id) => String(id) === String(request.params.studentId),
+  );
+  const studentHasViewer = connectedStudent?.linkedPeers?.some(
+    (id) => String(id) === String(request.auth.sub),
+  );
+  if (
+    !viewer ||
+    connectedStudent?.role !== 'student' ||
+    !viewerHasStudent ||
+    !studentHasViewer
+  ) {
+    throw createHttpError(403, 'Accept this student connection before viewing their reflections.');
+  }
+
+  const requestedLimit = Number.parseInt(request.query.limit, 10);
+  const limit = Number.isInteger(requestedLimit)
+    ? Math.min(Math.max(requestedLimit, 1), 50)
+    : 20;
+  const filter = { owner: connectedStudent._id, isPrivate: true };
+  if (request.query.cursor) {
+    let cursor;
+    try {
+      cursor = JSON.parse(Buffer.from(request.query.cursor, 'base64url').toString());
+    } catch {
+      throw createHttpError(400, 'The notes page cursor is invalid.');
+    }
+    const createdAt = new Date(cursor.createdAt);
+    if (Number.isNaN(createdAt.getTime()) || !mongoose.isValidObjectId(cursor.id)) {
+      throw createHttpError(400, 'The notes page cursor is invalid.');
+    }
+    filter.$or = [
+      { createdAt: { $lt: createdAt } },
+      { createdAt, _id: { $lt: cursor.id } },
+    ];
+  }
+  const rows = await JournalNote.find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit + 1)
+    .lean();
+  const hasMore = rows.length > limit;
+  const notes = hasMore ? rows.slice(0, limit) : rows;
+  const lastNote = notes.at(-1);
+  const nextCursor = hasMore && lastNote
+    ? Buffer.from(JSON.stringify({
+      createdAt: lastNote.createdAt.toISOString(),
+      id: lastNote._id.toString(),
+    })).toString('base64url')
+    : null;
+  return response.json({
+    success: true,
+    data: {
+      notes: notes.map(toClientNote),
+      nextCursor,
+      hasMore,
+    },
   });
 }
 

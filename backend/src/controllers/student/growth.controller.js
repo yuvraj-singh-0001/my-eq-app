@@ -48,7 +48,7 @@ export async function getOwnConnections(request, response) {
   const student = await User.findById(request.auth.sub)
     .populate('assignedTeacher', 'fullName role teacherId')
     .populate('linkedParents', 'fullName role studentId')
-    .populate('linkedPeers', 'fullName role studentId teacherId');
+    .populate('linkedPeers', 'fullName role studentId teacherId className section schoolName');
   if (!student) throw createHttpError(404, 'Student account was not found.');
   const people = [
     student.assignedTeacher,
@@ -61,6 +61,9 @@ export async function getOwnConnections(request, response) {
       fullName: person.fullName,
       role: person.role,
       accountId: person.teacherId ?? person.studentId ?? null,
+      className: person.className ?? null,
+      section: person.section ?? null,
+      schoolName: person.schoolName ?? null,
     }));
   return response.json({ success: true, data: { connections: people } });
 }

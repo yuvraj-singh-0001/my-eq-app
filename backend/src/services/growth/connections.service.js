@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { GrowthConnectionRequest } from '../../models/growth-connection-request.js';
+import { JournalNote } from '../../models/journal-notes.js';
 import { User } from '../../models/users.js';
 import { createHttpError } from '../../controllers/auth/auth.helpers.js';
 
@@ -201,19 +202,47 @@ export async function listConnectionRequests(request, response) {
   })
     .sort({ createdAt: -1 })
     .limit(50)
-    .populate('requester', 'fullName username role studentId teacherId className section')
-    .populate('recipient', 'fullName username role studentId teacherId className section')
+    .populate('requester', 'fullName username role studentId teacherId className section schoolName')
+    .populate('recipient', 'fullName username role studentId teacherId className section schoolName')
     .lean();
   const incoming = [];
   const outgoing = [];
+  const previewStudentIds = request.auth.role === 'student'
+    ? rows
+      .filter((row) => String(row.recipient?._id) === String(request.auth.sub) && row.requester?.role === 'student')
+      .map((row) => row.requester._id)
+    : [];
+  const previewNotes = previewStudentIds.length > 0
+    ? await JournalNote.find({ owner: { $in: previewStudentIds }, isPrivate: true })
+      .select('owner category sections.subcategory createdAt')
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(500)
+      .lean()
+    : [];
+  const headingsByStudent = new Map();
+  for (const note of previewNotes) {
+    const ownerId = String(note.owner);
+    const headings = headingsByStudent.get(ownerId) ?? [];
+    if (headings.length >= 10) continue;
+    const subheadings = [...new Set((note.sections ?? [])
+      .map((section) => section.subcategory?.trim())
+      .filter(Boolean))];
+    headings.push({ category: note.category, subheadings });
+    headingsByStudent.set(ownerId, headings);
+  }
   for (const row of rows) {
     const isIncoming = String(row.recipient?._id) === String(request.auth.sub);
     const person = isIncoming ? row.requester : row.recipient;
     if (!person) continue;
+    const personData = toPerson(person, isIncoming ? 'request_received' : 'request_sent');
+    if (isIncoming && request.auth.role === 'student' && person.role === 'student') {
+      personData.schoolName = person.schoolName ?? null;
+      personData.noteHeadings = headingsByStudent.get(String(person._id)) ?? [];
+    }
     (isIncoming ? incoming : outgoing).push({
       id: row._id.toString(),
       createdAt: row.createdAt,
-      person: toPerson(person, isIncoming ? 'request_received' : 'request_sent'),
+      person: personData,
     });
   }
   return response.json({ success: true, data: { incoming, outgoing } });

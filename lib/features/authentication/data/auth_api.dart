@@ -124,6 +124,8 @@ class GrowthConnectionData {
     this.username,
     this.className,
     this.section,
+    this.schoolName,
+    this.noteHeadings = const [],
     this.status = 'connected',
   });
 
@@ -134,6 +136,8 @@ class GrowthConnectionData {
   final String? username;
   final String? className;
   final String? section;
+  final String? schoolName;
+  final List<ConnectionNoteHeading> noteHeadings;
   final String status;
 
   factory GrowthConnectionData.fromJson(Map<String, dynamic> json) =>
@@ -145,7 +149,30 @@ class GrowthConnectionData {
         username: json['username'] as String?,
         className: json['className'] as String?,
         section: json['section'] as String?,
+        schoolName: json['schoolName'] as String?,
+        noteHeadings: (json['noteHeadings'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ConnectionNoteHeading.fromJson)
+            .toList(growable: false),
         status: json['status'] as String? ?? 'suggested',
+      );
+}
+
+class ConnectionNoteHeading {
+  const ConnectionNoteHeading({
+    required this.category,
+    required this.subheadings,
+  });
+
+  final String category;
+  final List<String> subheadings;
+
+  factory ConnectionNoteHeading.fromJson(Map<String, dynamic> json) =>
+      ConnectionNoteHeading(
+        category: json['category'] as String? ?? 'Reflection',
+        subheadings: (json['subheadings'] as List<dynamic>? ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
       );
 }
 
@@ -178,7 +205,10 @@ class GrowthPeopleResult {
 }
 
 class GrowthConnectionRequests {
-  const GrowthConnectionRequests({required this.incoming, required this.outgoing});
+  const GrowthConnectionRequests({
+    required this.incoming,
+    required this.outgoing,
+  });
 
   final List<GrowthConnectionRequestData> incoming;
   final List<GrowthConnectionRequestData> outgoing;
@@ -284,7 +314,9 @@ class AuthApi {
     } on TimeoutException {
       throw const AuthApiException('Loading connected people timed out.');
     } on FormatException {
-      throw const AuthApiException('The server returned invalid connection data.');
+      throw const AuthApiException(
+        'The server returned invalid connection data.',
+      );
     }
   }
 
@@ -297,15 +329,21 @@ class AuthApi {
     String search = '',
   }) async {
     try {
-      final uri = Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/people')
-          .replace(queryParameters: search.trim().isEmpty
-              ? null
-              : {'search': search.trim()});
-      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'})
+      final uri =
+          Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/people')
+              .replace(
+                queryParameters: search.trim().isEmpty
+                    ? null
+                    : {'search': search.trim()},
+              );
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AuthApiException(body['message'] as String? ?? 'People could not be loaded.');
+        throw AuthApiException(
+          body['message'] as String? ?? 'People could not be loaded.',
+        );
       }
       final data = body['data'] as Map<String, dynamic>? ?? const {};
       final rows = data['people'] as List<dynamic>? ?? const [];
@@ -337,7 +375,9 @@ class AuthApi {
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests'),
+            Uri.parse(
+              '$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests',
+            ),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -347,7 +387,9 @@ class AuthApi {
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AuthApiException(body['message'] as String? ?? 'The request could not be sent.');
+        throw AuthApiException(
+          body['message'] as String? ?? 'The request could not be sent.',
+        );
       }
     } on AuthApiException {
       rethrow;
@@ -369,13 +411,17 @@ class AuthApi {
     try {
       final response = await http
           .get(
-            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests'),
+            Uri.parse(
+              '$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests',
+            ),
             headers: {'Authorization': 'Bearer $token'},
           )
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AuthApiException(body['message'] as String? ?? 'Requests could not be loaded.');
+        throw AuthApiException(
+          body['message'] as String? ?? 'Requests could not be loaded.',
+        );
       }
       final data = body['data'] as Map<String, dynamic>? ?? const {};
       List<GrowthConnectionRequestData> parse(String key) =>
@@ -409,7 +455,9 @@ class AuthApi {
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests/$requestId/respond'),
+            Uri.parse(
+              '$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests/$requestId/respond',
+            ),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -419,7 +467,9 @@ class AuthApi {
           .timeout(const Duration(seconds: 10));
       final body = _decodeBody(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AuthApiException(body['message'] as String? ?? 'The request could not be updated.');
+        throw AuthApiException(
+          body['message'] as String? ?? 'The request could not be updated.',
+        );
       }
     } on AuthApiException {
       rethrow;
@@ -450,7 +500,9 @@ class AuthApi {
       }
       final code = body['data']?['inviteCode'] as String?;
       if (code == null || code.isEmpty) {
-        throw const AuthApiException('The parent invite code was not returned.');
+        throw const AuthApiException(
+          'The parent invite code was not returned.',
+        );
       }
       return code;
     } on AuthApiException {
@@ -790,6 +842,53 @@ class AuthApi {
       );
     } on FormatException {
       throw const AuthApiException('The server returned invalid notes data.');
+    }
+  }
+
+  static Future<JournalNotesPage> getConnectedStudentJournalNotes({
+    required String token,
+    required String studentId,
+    String? cursor,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$_baseUrl/auth/student/growth/connections/$studentId/journal-notes',
+      ).replace(queryParameters: {'limit': '20', 'cursor': ?cursor});
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ??
+              'This student’s reflections could not be loaded.',
+        );
+      }
+      final notes = body['data']?['notes'] as List<dynamic>? ?? const [];
+      return JournalNotesPage(
+        notes: notes
+            .whereType<Map<String, dynamic>>()
+            .map(JournalNoteData.fromJson)
+            .toList(growable: false),
+        hasMore: body['data']?['hasMore'] as bool? ?? false,
+        nextCursor: body['data']?['nextCursor'] as String?,
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to load this student’s reflections.',
+      );
+    } on http.ClientException {
+      throw const AuthApiException(
+        'Cannot connect to load this student’s reflections.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Loading reflections timed out.');
+    } on FormatException {
+      throw const AuthApiException(
+        'The server returned invalid reflection data.',
+      );
     }
   }
 

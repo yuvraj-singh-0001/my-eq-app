@@ -15,6 +15,7 @@ import {
 } from '../controllers/student/connections.controller.js';
 import {
   createJournalNote,
+  listConnectedStudentJournalNotes,
   listJournalNotes,
 } from '../controllers/student/journal-notes.controller.js';
 import {
@@ -56,6 +57,7 @@ router.post('/login', login);
 router.post('/signup', signup);
 router.get('/student/journal/notes', authenticate, listJournalNotes);
 router.post('/student/journal/notes', authenticate, createJournalNote);
+router.get('/student/growth/connections/:studentId/journal-notes', authenticate, listConnectedStudentJournalNotes);
 router.post('/student/growth/connect/parent/invite', authenticate, createParentInvite);
 router.post('/student/growth/feedback', authenticate, submitOwnGrowthFeedback);
 router.get('/student/growth/summary', authenticate, getOwnGrowthSummary);
