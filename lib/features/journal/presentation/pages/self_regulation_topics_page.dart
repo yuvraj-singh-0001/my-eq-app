@@ -66,7 +66,7 @@ class _SelfRegulationTopicsPageState extends State<SelfRegulationTopicsPage> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
-              'Choose what you would like to reflect on',
+              '${widget.topics.length} topics · choose what feels right',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 10, color: Color(0xFF77849A)),

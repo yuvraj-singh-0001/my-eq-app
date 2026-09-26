@@ -939,46 +939,42 @@ class _NoteCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (note.mood != null)
-                      Text(
-                        note.mood!,
-                        style: const TextStyle(
-                          color: Color(0xFF60718D),
-                          fontSize: 11,
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 5),
                 if (note.sections.isNotEmpty) ...[
-                  Text(
-                    note.sections
-                        .map(
-                          (section) => section['subcategory'] as String? ?? '',
-                        )
-                        .where((title) => title.isNotEmpty)
-                        .join('  ·  '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 5,
+                    children: [
+                      for (final title in note.sections
+                          .map((section) => section['subcategory'] as String? ?? '')
+                          .where((title) => title.isNotEmpty))
+                        Container(
+                          constraints: const BoxConstraints(maxWidth: 190),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: background,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                 ],
-                Text(
-                  note.text,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF75839D),
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 4),
                 Text(
                   '$date  ·  $time IST',
                   style: const TextStyle(

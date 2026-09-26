@@ -53,6 +53,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'Sometimes I am not sure what will help me feel better.',
       'I step away for a short break when I need to calm down.',
       'Counting slowly helps me settle my thoughts.',
+      'A familiar song or activity can help me feel safer.',
+      'I feel calmer when someone gives me time to talk.',
     ],
   ),
   SelfRegulationTopic(
@@ -70,6 +72,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'A little reminder helps me be patient while I wait.',
       'I can wait more easily when I know how long it may take.',
       'Keeping busy helps the time pass while I wait.',
+      'I can remind myself that my turn will come.',
+      'Waiting feels easier when I have something quiet to do.',
     ],
   ),
   SelfRegulationTopic(
@@ -87,6 +91,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'I notice and feel proud of small things I do well.',
       'Moving my body helps me feel better.',
       'Getting enough rest helps me handle the day.',
+      'I feel good when I make time for people I care about.',
+      'A small plan can help me remember a helpful habit.',
     ],
   ),
   SelfRegulationTopic(
@@ -104,6 +110,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'I wait for my turn to speak.',
       'I sometimes speak before I am ready.',
       'I find it hard to stop when I feel excited.',
+      'I can pause and check how the other person feels.',
+      'When I make a quick choice, I can try again next time.',
     ],
   ),
   SelfRegulationTopic(
@@ -121,6 +129,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'I can try a new routine one step at a time.',
       'I need time to get used to new plans.',
       'Once I try a change, it often feels easier.',
+      'I feel better when someone explains what will stay the same.',
+      'I can ask for help when a change feels too big.',
     ],
   ),
   SelfRegulationTopic(
@@ -138,6 +148,8 @@ const selfRegulationTopics = <SelfRegulationTopic>[
       'I focus better when I know what to do first.',
       'Noise or movement can pull my attention away.',
       'A reminder helps me return to what I was doing.',
+      'I focus better after I move around for a little while.',
+      'I feel proud when I finish one small part of a task.',
     ],
   ),
 ];

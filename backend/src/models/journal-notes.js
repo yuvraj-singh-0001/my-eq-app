@@ -18,8 +18,8 @@ const journalNoteSchema = new mongoose.Schema(
       type: [String],
       default: [],
       validate: {
-        validator: (responses) => responses.length <= 60 && responses.every((value) => value.length <= 240),
-        message: 'A note can contain up to 60 short selections.',
+        validator: (responses) => responses.length <= 100 && responses.every((value) => value.length <= 240),
+        message: 'A note can contain up to 100 short selections.',
       },
     },
     customText: { type: String, trim: true, maxlength: 2000, default: '' },

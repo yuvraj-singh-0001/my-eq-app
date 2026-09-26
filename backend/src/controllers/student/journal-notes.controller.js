@@ -99,7 +99,7 @@ export async function createJournalNote(request, response) {
   }
   if (
     !Array.isArray(rawResponses) ||
-    rawResponses.length > 60 ||
+    rawResponses.length > 100 ||
     rawResponses.some((value) => typeof value !== 'string' || value.trim().length > 240)
   ) {
     throw createHttpError(400, 'The selected statements are invalid.');
