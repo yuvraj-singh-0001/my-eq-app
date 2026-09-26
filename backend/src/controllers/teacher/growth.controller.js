@@ -67,3 +67,23 @@ export async function getOwnActivityHistory(request, response) {
     },
   });
 }
+
+export async function getOwnConnections(request, response) {
+  requireTeacher(request);
+  const students = await User.find({ assignedTeacher: request.auth.sub, role: 'student' })
+    .select('fullName role studentId')
+    .sort({ fullName: 1 })
+    .limit(100)
+    .lean();
+  return response.json({
+    success: true,
+    data: {
+      connections: students.map((student) => ({
+        id: student._id.toString(),
+        fullName: student.fullName,
+        role: student.role,
+        accountId: student.studentId ?? null,
+      })),
+    },
+  });
+}

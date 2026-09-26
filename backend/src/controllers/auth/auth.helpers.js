@@ -59,5 +59,20 @@ export function publicUser(user) {
     role: user.role,
     schoolName: user.schoolName,
     teachingSubject: user.teachingSubject,
+    father: user.father
+      ? {
+          name: user.father.name,
+          email: user.father.email,
+          mobileNumber: user.father.mobileNumber,
+        }
+      : null,
+    mother: user.mother
+      ? {
+          name: user.mother.name,
+          email: user.mother.email,
+          mobileNumber: user.mother.mobileNumber,
+        }
+      : null,
+    createdAt: user.createdAt,
   };
 }

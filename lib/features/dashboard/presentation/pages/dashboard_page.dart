@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../authentication/data/auth_api.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
+import 'profile_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.result});
@@ -219,6 +220,14 @@ class DashboardPage extends StatelessWidget {
                   title: action.$4,
                   subtitle: action.$5,
                   onTap: () {
+                    if (action.$4 == 'Your Profile') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ProfilePage(result: result),
+                        ),
+                      );
+                      return;
+                    }
                     if (!isTeacher && !isParent &&
                         action.$4 == 'Write Your First Reflection') {
                       Navigator.of(context).push(

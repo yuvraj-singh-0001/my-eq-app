@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../authentication/data/auth_api.dart';
+import '../../../dashboard/presentation/pages/profile_page.dart';
 import 'reflection_editor_page.dart';
 import 'journal_reflection_content.dart';
 import 'self_regulation_content.dart';
@@ -237,6 +238,14 @@ class _JournalPageState extends State<JournalPage> {
 
   void _onNavigation(int index) {
     if (index == 1) return;
+    if (index == 4) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ProfilePage(result: widget.result),
+        ),
+      );
+      return;
+    }
     final label = const [
       'Home',
       'Journal',

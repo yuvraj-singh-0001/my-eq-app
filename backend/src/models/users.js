@@ -25,11 +25,15 @@ const userSchema = new mongoose.Schema(
     assignedTeacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', default: null },
     linkedParents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Users' }],
     linkedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Users' }],
+    linkedPeers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Users' }],
     username: { type: String, required: true, lowercase: true, trim: true, unique: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ['student', 'teacher', 'parent', 'admin'], default: 'student' },
   },
   { timestamps: true, versionKey: false },
 );
+
+userSchema.index({ assignedTeacher: 1, role: 1, fullName: 1 });
+userSchema.index({ role: 1, schoolName: 1, fullName: 1 });
 
 export const User = mongoose.model('Users', userSchema, 'Users');

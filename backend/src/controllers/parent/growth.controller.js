@@ -63,3 +63,17 @@ export async function getStudentGrowthSummary(request, response) {
     data: await buildGrowthSummary(student),
   });
 }
+
+export async function getOwnConnections(request, response) {
+  requireParent(request);
+  const parent = await User.findById(request.auth.sub)
+    .populate('linkedStudents', 'fullName role studentId');
+  if (!parent) throw createHttpError(404, 'Parent account was not found.');
+  const people = (parent.linkedStudents ?? []).map((student) => ({
+    id: student._id.toString(),
+    fullName: student.fullName,
+    role: student.role,
+    accountId: student.studentId ?? null,
+  }));
+  return response.json({ success: true, data: { connections: people } });
+}

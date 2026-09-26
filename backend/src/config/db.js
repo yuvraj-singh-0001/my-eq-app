@@ -5,6 +5,7 @@ import { User } from '../models/users.js';
 import { JournalNote } from '../models/journal-notes.js';
 import { GrowthFeedback } from '../models/growth-feedback.js';
 import { GrowthConnectionInvite } from '../models/growth-connection-invite.js';
+import { GrowthConnectionRequest } from '../models/growth-connection-request.js';
 
 export async function connectDatabase() {
   dns.setServers(config.mongodbDnsServers);
@@ -17,6 +18,7 @@ export async function connectDatabase() {
     JournalNote.createIndexes(),
     GrowthFeedback.createIndexes(),
     GrowthConnectionInvite.createIndexes(),
+    GrowthConnectionRequest.createIndexes(),
   ]);
   console.log('MongoDB connected');
 }

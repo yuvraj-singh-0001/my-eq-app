@@ -42,6 +42,148 @@ class LoginResult {
   final String? token;
 }
 
+class UserProfileData {
+  const UserProfileData({
+    required this.id,
+    required this.fullName,
+    required this.role,
+    this.studentId,
+    this.teacherId,
+    this.email,
+    this.mobileNumber,
+    this.username,
+    this.className,
+    this.section,
+    this.gender,
+    this.schoolName,
+    this.teachingSubject,
+    this.fatherName,
+    this.fatherEmail,
+    this.fatherMobileNumber,
+    this.motherName,
+    this.motherEmail,
+    this.motherMobileNumber,
+    this.createdAt,
+  });
+
+  final String id;
+  final String fullName;
+  final String role;
+  final String? studentId;
+  final String? teacherId;
+  final String? email;
+  final String? mobileNumber;
+  final String? username;
+  final String? className;
+  final String? section;
+  final String? gender;
+  final String? schoolName;
+  final String? teachingSubject;
+  final String? fatherName;
+  final String? fatherEmail;
+  final String? fatherMobileNumber;
+  final String? motherName;
+  final String? motherEmail;
+  final String? motherMobileNumber;
+  final DateTime? createdAt;
+
+  factory UserProfileData.fromJson(Map<String, dynamic> json) {
+    final father = json['father'] as Map<String, dynamic>? ?? const {};
+    final mother = json['mother'] as Map<String, dynamic>? ?? const {};
+    return UserProfileData(
+      id: json['id']?.toString() ?? '',
+      fullName: json['fullName'] as String? ?? 'User',
+      role: json['role'] as String? ?? 'student',
+      studentId: json['studentId'] as String?,
+      teacherId: json['teacherId'] as String?,
+      email: json['email'] as String?,
+      mobileNumber: json['mobileNumber'] as String?,
+      username: json['username'] as String?,
+      className: json['className'] as String?,
+      section: json['section'] as String?,
+      gender: json['gender'] as String?,
+      schoolName: json['schoolName'] as String?,
+      teachingSubject: json['teachingSubject'] as String?,
+      fatherName: father['name'] as String?,
+      fatherEmail: father['email'] as String?,
+      fatherMobileNumber: father['mobileNumber'] as String?,
+      motherName: mother['name'] as String?,
+      motherEmail: mother['email'] as String?,
+      motherMobileNumber: mother['mobileNumber'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+    );
+  }
+}
+
+class GrowthConnectionData {
+  const GrowthConnectionData({
+    required this.id,
+    required this.fullName,
+    required this.role,
+    this.accountId,
+    this.username,
+    this.className,
+    this.section,
+    this.status = 'connected',
+  });
+
+  final String id;
+  final String fullName;
+  final String role;
+  final String? accountId;
+  final String? username;
+  final String? className;
+  final String? section;
+  final String status;
+
+  factory GrowthConnectionData.fromJson(Map<String, dynamic> json) =>
+      GrowthConnectionData(
+        id: json['id']?.toString() ?? '',
+        fullName: json['fullName'] as String? ?? 'Connected account',
+        role: json['role'] as String? ?? 'student',
+        accountId: json['accountId'] as String?,
+        username: json['username'] as String?,
+        className: json['className'] as String?,
+        section: json['section'] as String?,
+        status: json['status'] as String? ?? 'suggested',
+      );
+}
+
+class GrowthConnectionRequestData {
+  const GrowthConnectionRequestData({
+    required this.id,
+    required this.person,
+    this.createdAt,
+  });
+
+  final String id;
+  final GrowthConnectionData person;
+  final DateTime? createdAt;
+
+  factory GrowthConnectionRequestData.fromJson(Map<String, dynamic> json) =>
+      GrowthConnectionRequestData(
+        id: json['id']?.toString() ?? '',
+        person: GrowthConnectionData.fromJson(
+          json['person'] as Map<String, dynamic>? ?? const {},
+        ),
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      );
+}
+
+class GrowthPeopleResult {
+  const GrowthPeopleResult({required this.people, required this.needsSchool});
+
+  final List<GrowthConnectionData> people;
+  final bool needsSchool;
+}
+
+class GrowthConnectionRequests {
+  const GrowthConnectionRequests({required this.incoming, required this.outgoing});
+
+  final List<GrowthConnectionRequestData> incoming;
+  final List<GrowthConnectionRequestData> outgoing;
+}
+
 class JournalNoteData {
   const JournalNoteData({
     required this.id,
@@ -104,6 +246,329 @@ class AuthApi {
     }
     if (Platform.isAndroid) return 'http://10.0.2.2:4000/api';
     return 'http://127.0.0.1:4000/api';
+  }
+
+  static Future<List<GrowthConnectionData>> getGrowthConnections({
+    required String token,
+    required String role,
+  }) async {
+    final path = switch (role) {
+      'teacher' => 'teacher/growth/connections',
+      'parent' => 'parent/growth/connections',
+      _ => 'student/growth/connections',
+    };
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/$path'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Connected people could not be loaded.',
+        );
+      }
+      final people = body['data']?['connections'] as List<dynamic>? ?? const [];
+      return people
+          .whereType<Map<String, dynamic>>()
+          .map(GrowthConnectionData.fromJson)
+          .toList(growable: false);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load connected people.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load connected people.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading connected people timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid connection data.');
+    }
+  }
+
+  static String _connectionRolePath(String role) =>
+      role == 'teacher' ? 'teacher/growth' : 'student/growth';
+
+  static Future<GrowthPeopleResult> searchGrowthPeople({
+    required String token,
+    required String role,
+    String search = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/people')
+          .replace(queryParameters: search.trim().isEmpty
+              ? null
+              : {'search': search.trim()});
+      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'People could not be loaded.');
+      }
+      final data = body['data'] as Map<String, dynamic>? ?? const {};
+      final rows = data['people'] as List<dynamic>? ?? const [];
+      return GrowthPeopleResult(
+        people: rows
+            .whereType<Map<String, dynamic>>()
+            .map(GrowthConnectionData.fromJson)
+            .toList(growable: false),
+        needsSchool: data['needsSchool'] as bool? ?? false,
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to search for people.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to search for people.');
+    } on TimeoutException {
+      throw const AuthApiException('Searching for people timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid people data.');
+    }
+  }
+
+  static Future<void> sendGrowthConnectionRequest({
+    required String token,
+    required String role,
+    required String identity,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'identity': identity}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'The request could not be sent.');
+      }
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to send the request.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to send the request.');
+    } on TimeoutException {
+      throw const AuthApiException('Sending the request timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid response.');
+    }
+  }
+
+  static Future<GrowthConnectionRequests> getGrowthConnectionRequests({
+    required String token,
+    required String role,
+  }) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'Requests could not be loaded.');
+      }
+      final data = body['data'] as Map<String, dynamic>? ?? const {};
+      List<GrowthConnectionRequestData> parse(String key) =>
+          (data[key] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(GrowthConnectionRequestData.fromJson)
+              .toList(growable: false);
+      return GrowthConnectionRequests(
+        incoming: parse('incoming'),
+        outgoing: parse('outgoing'),
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load requests.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load requests.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading requests timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid request data.');
+    }
+  }
+
+  static Future<void> respondToGrowthConnectionRequest({
+    required String token,
+    required String role,
+    required String requestId,
+    required String decision,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/${_connectionRolePath(role)}/connection-requests/$requestId/respond'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'decision': decision}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(body['message'] as String? ?? 'The request could not be updated.');
+      }
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to update the request.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to update the request.');
+    } on TimeoutException {
+      throw const AuthApiException('Updating the request timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid response.');
+    }
+  }
+
+  static Future<String> createParentInvite(String token) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/student/growth/connect/parent/invite'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'A parent invite could not be created.',
+        );
+      }
+      final code = body['data']?['inviteCode'] as String?;
+      if (code == null || code.isEmpty) {
+        throw const AuthApiException('The parent invite code was not returned.');
+      }
+      return code;
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to the server.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to the server.');
+    } on TimeoutException {
+      throw const AuthApiException('Creating the parent invite timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid invite.');
+    }
+  }
+
+  static Future<void> connectParentWithCode({
+    required String token,
+    required String inviteCode,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/parent/connect/student'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'inviteCode': inviteCode}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'The student could not be connected.',
+        );
+      }
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to the server.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to the server.');
+    } on TimeoutException {
+      throw const AuthApiException('Connecting the student timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid response.');
+    }
+  }
+
+  static Future<UserProfileData> getProfile(String token) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/me'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Your profile could not be loaded.',
+        );
+      }
+      final user = body['data']?['user'] as Map<String, dynamic>?;
+      if (user == null) {
+        throw const AuthApiException('Your profile details were not returned.');
+      }
+      return UserProfileData.fromJson(user);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load your profile.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load your profile.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading your profile timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid profile data.');
+    }
+  }
+
+  static Future<UserProfileData> updateProfile({
+    required String token,
+    required Map<String, Object?> profile,
+  }) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse('$_baseUrl/auth/me'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(profile),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Your profile could not be updated.',
+        );
+      }
+      final user = body['data']?['user'] as Map<String, dynamic>?;
+      if (user == null) {
+        throw const AuthApiException('The updated profile was not returned.');
+      }
+      return UserProfileData.fromJson(user);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to update your profile.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to update your profile.');
+    } on TimeoutException {
+      throw const AuthApiException('Updating your profile timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid profile data.');
+    }
   }
 
   static Future<String> previewAccountId(String role) async {
