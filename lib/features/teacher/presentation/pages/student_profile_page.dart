@@ -25,11 +25,15 @@ class _TeacherStudentProgressPageState
     extends State<TeacherStudentProgressPage> {
   StudentGrowthSummaryData? _summary;
   JournalNotesPage? _journal;
+  StudentReflectionOverviewData? _reflectionOverview;
   bool _loading = true;
+  bool _overviewLoading = false;
   bool _sendingFeedback = false;
   String? _error;
+  String? _overviewError;
   int _selectedTab = 0;
-  int _trendDays = 7;
+  int? _trendDays = 3;
+  int _overviewRequestId = 0;
 
   String? get _token => widget.result.token;
 
@@ -67,12 +71,19 @@ class _TeacherStudentProgressPageState
           token: token,
           studentId: studentId,
         ),
+        AuthApi.getTeacherStudentReflectionOverview(
+          token: token,
+          studentId: studentId,
+          days: _trendDays,
+        ),
       ]);
       if (!mounted) return;
       setState(() {
         _summary = values[0] as StudentGrowthSummaryData;
         _journal = values[1] as JournalNotesPage;
+        _reflectionOverview = values[2] as StudentReflectionOverviewData;
         _loading = false;
+        _overviewError = null;
       });
     } on AuthApiException catch (error) {
       if (error.statusCode == 401) {
@@ -160,13 +171,78 @@ class _TeacherStudentProgressPageState
 
   List<JournalNoteData> get _notes => _journal?.notes ?? const [];
 
+  List<JournalNoteData> get _periodNotes {
+    final days = _trendDays;
+    if (days == null) return _notes;
+    final from = DateTime.now().subtract(Duration(days: days));
+    return _notes.where((note) => !note.createdAt.isBefore(from)).toList();
+  }
+
+  Future<void> _changeTrendDays(int? days, {bool force = false}) async {
+    if (_trendDays == days && !force) return;
+    final requestId = ++_overviewRequestId;
+    setState(() {
+      _trendDays = days;
+      _overviewLoading = true;
+      _overviewError = null;
+      _reflectionOverview = null;
+    });
+    final token = _token;
+    final studentId = widget.student.accountId;
+    if (token == null || studentId == null || studentId.isEmpty) {
+      setState(() {
+        _overviewLoading = false;
+        _overviewError = 'Student details are unavailable.';
+      });
+      return;
+    }
+    try {
+      final overview = await AuthApi.getTeacherStudentReflectionOverview(
+        token: token,
+        studentId: studentId,
+        days: days,
+      );
+      if (mounted && requestId == _overviewRequestId) {
+        setState(() {
+          _reflectionOverview = overview;
+          _overviewLoading = false;
+        });
+      }
+    } on AuthApiException catch (error) {
+      if (error.statusCode == 401) {
+        await AuthSession.clear();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const LoginPage(initialRole: 1),
+          ),
+          (_) => false,
+        );
+        return;
+      }
+      if (mounted && requestId == _overviewRequestId) {
+        setState(() {
+          _overviewError = error.message;
+          _overviewLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted && requestId == _overviewRequestId) {
+        setState(() {
+          _overviewError = 'Please check your connection and try again.';
+          _overviewLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _retryOverview() => _changeTrendDays(_trendDays, force: true);
+
   int? get _positiveMoodPercent {
-    final moodNotes = _notes.where((note) => note.mood != null).toList();
-    if (moodNotes.isEmpty) return null;
-    final positive = moodNotes
-        .where((note) => note.mood == 'Great' || note.mood == 'Good')
-        .length;
-    return (positive * 100 / moodNotes.length).round();
+    final counts = _reflectionOverview?.moodCounts ?? const <String, int>{};
+    final total = counts.values.fold<int>(0, (sum, count) => sum + count);
+    if (total == 0) return null;
+    return ((counts['Great'] ?? 0) + (counts['Good'] ?? 0)) * 100 ~/ total;
   }
 
   int? get _attentionAreas {
@@ -387,7 +463,8 @@ class _TeacherStudentProgressPageState
   );
 
   List<Widget> _overviewContent() {
-    final latestNote = _notes.isEmpty ? null : _notes.first;
+    final periodNotes = _periodNotes;
+    final latestNote = periodNotes.isEmpty ? null : periodNotes.first;
     final recentActivity = latestNote == null
         ? null
         : '${latestNote.category} reflection · ${_relativeDate(latestNote.createdAt)}';
@@ -400,9 +477,18 @@ class _TeacherStudentProgressPageState
       ),
       const SizedBox(height: 14),
       _MoodTrendCard(
-        notes: _notes,
+        overview: _reflectionOverview,
         days: _trendDays,
-        onDaysChanged: (days) => setState(() => _trendDays = days),
+        isLoading: _overviewLoading,
+        error: _overviewError,
+        onDaysChanged: _changeTrendDays,
+        onRetry: _retryOverview,
+      ),
+      const SizedBox(height: 14),
+      _ReflectionOverviewCard(
+        overview: _reflectionOverview,
+        days: _trendDays,
+        isLoading: _overviewLoading,
       ),
       const SizedBox(height: 14),
       _ProfileMetricGrid(
@@ -424,9 +510,9 @@ class _TeacherStudentProgressPageState
           (
             Icons.edit_note_rounded,
             'Reflections',
-            _journal == null
+            _reflectionOverview == null
                 ? '--'
-                : '${_journal!.notes.length}${_journal!.hasMore ? '+' : ''}',
+                : '${_reflectionOverview!.totalReflections}',
             const Color(0xFF775CB2),
             const Color(0xFFF1EDFA),
           ),
@@ -443,11 +529,15 @@ class _TeacherStudentProgressPageState
       _ProgressAreas(areas: _improvingAreas),
       const SizedBox(height: 14),
       _RecentReflections(
-        notes: _notes.take(3).toList(growable: false),
+        notes: periodNotes.take(3).toList(growable: false),
         hasMore: _journal?.hasMore ?? false,
         onOpen: _openReflection,
         onViewAll: _openReflections,
       ),
+      if (periodNotes.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _StudentReflectionDetails(notes: periodNotes.take(3).toList()),
+      ],
       const SizedBox(height: 14),
       _GoalsCard(onTap: _openGoals),
       if (_summary?.recent.isNotEmpty == true) ...[
@@ -977,26 +1067,24 @@ class _RecentReflections extends StatelessWidget {
 
 class _MoodTrendCard extends StatelessWidget {
   const _MoodTrendCard({
-    required this.notes,
+    required this.overview,
     required this.days,
+    required this.isLoading,
+    required this.error,
     required this.onDaysChanged,
+    required this.onRetry,
   });
-  final List<JournalNoteData> notes;
-  final int days;
-  final ValueChanged<int> onDaysChanged;
+  final StudentReflectionOverviewData? overview;
+  final int? days;
+  final bool isLoading;
+  final String? error;
+  final ValueChanged<int?> onDaysChanged;
+  final VoidCallback onRetry;
+
   @override
   Widget build(BuildContext context) {
-    final since = DateTime.now().subtract(Duration(days: days));
-    final perDay = <DateTime, List<int>>{};
-    for (final note in notes) {
-      final score = _moodScore(note.mood);
-      final localDate = note.createdAt.toLocal();
-      if (score == null || localDate.isBefore(since)) continue;
-      final day = DateTime(localDate.year, localDate.month, localDate.day);
-      perDay.putIfAbsent(day, () => []).add(score);
-    }
-    final daysWithMood = perDay.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    final points = overview?.trend ?? const <MoodTrendPointData>[];
+    final selected = days?.toString() ?? 'all';
     return _ProfilePanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1013,61 +1101,101 @@ class _MoodTrendCard extends StatelessWidget {
                   ),
                 ),
               ),
-              SegmentedButton<int>(
+              SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 7, label: Text('7 Days')),
-                  ButtonSegment(value: 30, label: Text('30 Days')),
+                  ButtonSegment(value: '3', label: Text('3 days')),
+                  ButtonSegment(value: '5', label: Text('5 days')),
+                  ButtonSegment(value: 'all', label: Text('All')),
                 ],
-                selected: {days},
+                selected: {selected},
                 showSelectedIcon: false,
-                onSelectionChanged: (selection) =>
-                    onDaysChanged(selection.first),
+                onSelectionChanged: (selection) {
+                  final value = selection.first;
+                  onDaysChanged(value == 'all' ? null : int.parse(value));
+                },
                 style: const ButtonStyle(
                   visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 9)),
+                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
                   padding: WidgetStatePropertyAll(
-                    EdgeInsets.symmetric(horizontal: 7),
+                    EdgeInsets.symmetric(horizontal: 5),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          if (daysWithMood.length < 2)
+          if (error != null)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    error!,
+                    style: const TextStyle(
+                      color: Color(0xFFAB4F3A),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                TextButton(onPressed: onRetry, child: const Text('Retry')),
+              ],
+            )
+          else if (isLoading && overview == null)
             const SizedBox(
               height: 90,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Not enough data yet',
-                      style: TextStyle(
-                        color: Color(0xFF52627B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'More reflections will help build this trend.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF8793A6), fontSize: 10),
-                    ),
-                  ],
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF149B78),
+                ),
+              ),
+            )
+          else if (points.isEmpty)
+            const SizedBox(
+              height: 78,
+              child: Center(
+                child: Text(
+                  'No mood entries in this date range yet.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF8793A6), fontSize: 11),
                 ),
               ),
             )
           else
-            SizedBox(
-              height: 108,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _MoodTrendPainter([
-                  for (final entry in daysWithMood)
-                    entry.value.reduce((a, b) => a + b) / entry.value.length,
-                ]),
-              ),
+            Column(
+              children: [
+                SizedBox(
+                  height: 108,
+                  width: double.infinity,
+                  child: CustomPaint(painter: _MoodTrendPainter(points)),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      _shortDate(points.first.date),
+                      style: const TextStyle(
+                        color: Color(0xFF8793A6),
+                        fontSize: 9,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${points.length} days with mood entries',
+                      style: const TextStyle(
+                        color: Color(0xFF8793A6),
+                        fontSize: 9,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _shortDate(points.last.date),
+                      style: const TextStyle(
+                        color: Color(0xFF8793A6),
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
         ],
       ),
@@ -1075,11 +1203,336 @@ class _MoodTrendCard extends StatelessWidget {
   }
 }
 
+class _ReflectionOverviewCard extends StatelessWidget {
+  const _ReflectionOverviewCard({
+    required this.overview,
+    required this.days,
+    required this.isLoading,
+  });
+  final StudentReflectionOverviewData? overview;
+  final int? days;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = overview;
+    if (data == null && isLoading) {
+      return const _ProfilePanel(
+        child: SizedBox(
+          height: 72,
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF149B78),
+            ),
+          ),
+        ),
+      );
+    }
+    if (data == null) return const SizedBox.shrink();
+    final moodEntries = data.moodCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topMood = moodEntries.isEmpty ? null : moodEntries.first;
+    final topics = data.categoryCounts
+        .take(3)
+        .map((item) => item.label)
+        .toList();
+    final feelings = data.feelings.take(3).map((item) => item.label).toList();
+    final period = days == null
+        ? 'all recorded reflections'
+        : 'the last $days days';
+    return _ProfilePanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Reflection overview',
+            style: TextStyle(
+              color: Color(0xFF203454),
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'A summary of the student’s shared entries for this range.',
+            style: TextStyle(color: Color(0xFF8793A6), fontSize: 10),
+          ),
+          const SizedBox(height: 10),
+          if (data.totalReflections == 0)
+            Text(
+              'No reflections were recorded in $period.',
+              style: const TextStyle(
+                color: Color(0xFF56647A),
+                fontSize: 12,
+                height: 1.45,
+              ),
+            )
+          else ...[
+            Text(
+              'The student shared ${data.totalReflections} ${data.totalReflections == 1 ? 'reflection' : 'reflections'} in $period.',
+              style: const TextStyle(
+                color: Color(0xFF40516A),
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+            if (topMood != null) ...[
+              const SizedBox(height: 7),
+              Text(
+                'Most recorded mood: ${topMood.key} (${topMood.value} ${topMood.value == 1 ? 'entry' : 'entries'}).',
+                style: const TextStyle(
+                  color: Color(0xFF40516A),
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+            ],
+            if (topics.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              const _OverviewSubheading('Topics appearing in entries'),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [for (final topic in topics) _OverviewTag(topic)],
+              ),
+            ],
+            if (feelings.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              const _OverviewSubheading('Feelings selected'),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final feeling in feelings) _OverviewTag(feeling),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StudentReflectionDetails extends StatelessWidget {
+  const _StudentReflectionDetails({required this.notes});
+  final List<JournalNoteData> notes;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.only(bottom: 8),
+        child: Text(
+          'Student’s reflection details',
+          style: TextStyle(
+            color: Color(0xFF203454),
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      for (final note in notes)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 9),
+          child: _ProfilePanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        note.category,
+                        style: const TextStyle(
+                          color: Color(0xFF203454),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _formatDate(note.createdAt),
+                      style: const TextStyle(
+                        color: Color(0xFF8793A6),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+                if (note.mood?.isNotEmpty == true) ...[
+                  const SizedBox(height: 7),
+                  _MoodLabel(mood: note.mood!),
+                ],
+                if (note.text.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  const _OverviewSubheading('Student’s note'),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    note.text,
+                    style: const TextStyle(
+                      color: Color(0xFF40516A),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+                for (final section in note.sections)
+                  _ReflectionSectionDetails(section: section),
+                if (note.responses.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  const _OverviewSubheading('Selected responses'),
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final response in note.responses)
+                        _OverviewTag(response),
+                    ],
+                  ),
+                ],
+                if (note.customText.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  const _OverviewSubheading('Additional words'),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    note.customText,
+                    style: const TextStyle(
+                      color: Color(0xFF40516A),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+class _ReflectionSectionDetails extends StatelessWidget {
+  const _ReflectionSectionDetails({required this.section});
+  final Map<String, dynamic> section;
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = section['subcategory'] as String? ?? '';
+    final statements =
+        (section['selectedStatements'] as List<dynamic>? ?? const [])
+            .whereType<String>()
+            .toList();
+    final feelings = (section['feelings'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toList();
+    final ownWords = section['customText'] as String? ?? '';
+    if (heading.isEmpty &&
+        statements.isEmpty &&
+        feelings.isEmpty &&
+        ownWords.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (heading.isNotEmpty) _OverviewSubheading(heading),
+          if (feelings.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final feeling in feelings) _OverviewTag(feeling)],
+            ),
+          ],
+          if (statements.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            for (final statement in statements)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  '•  $statement',
+                  style: const TextStyle(
+                    color: Color(0xFF56647A),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+          ],
+          if (ownWords.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            _OverviewSubheading(
+              feelings.isNotEmpty
+                  ? 'Student’s context for these feelings'
+                  : 'Student’s own words',
+            ),
+            const SizedBox(height: 3),
+            SelectableText(
+              ownWords,
+              style: const TextStyle(
+                color: Color(0xFF40516A),
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewSubheading extends StatelessWidget {
+  const _OverviewSubheading(this.label);
+  final String label;
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    style: const TextStyle(
+      color: Color(0xFF203454),
+      fontSize: 11,
+      fontWeight: FontWeight.w800,
+    ),
+  );
+}
+
+class _OverviewTag extends StatelessWidget {
+  const _OverviewTag(this.label);
+  final String label;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF7F3),
+      borderRadius: BorderRadius.circular(9),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Color(0xFF168064),
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+String _shortDate(DateTime date) => '${date.day}/${date.month}';
+
 class _MoodTrendPainter extends CustomPainter {
-  const _MoodTrendPainter(this.values);
-  final List<double> values;
+  const _MoodTrendPainter(this.points);
+  final List<MoodTrendPointData> points;
   @override
   void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
     const inset = 12.0;
     final chartHeight = size.height - inset * 2;
     final chartWidth = size.width - inset * 2;
@@ -1090,32 +1543,37 @@ class _MoodTrendPainter extends CustomPainter {
       final y = inset + chartHeight * row / 2;
       canvas.drawLine(Offset(inset, y), Offset(size.width - inset, y), grid);
     }
-    final points = <Offset>[];
-    for (var i = 0; i < values.length; i++) {
-      final x = values.length == 1
+    final offsets = <Offset>[];
+    final firstDate = points.first.date;
+    final lastDate = points.last.date;
+    final totalDays = lastDate.difference(firstDate).inDays;
+    for (final item in points) {
+      final x = totalDays == 0
           ? size.width / 2
-          : inset + chartWidth * i / (values.length - 1);
-      points.add(Offset(x, inset + chartHeight * (5 - values[i]) / 4));
+          : inset +
+                chartWidth * item.date.difference(firstDate).inDays / totalDays;
+      final y = inset + chartHeight * (5 - item.average) / 4;
+      offsets.add(Offset(x, y));
     }
     final paint = Paint()
       ..color = const Color(0xFF1CA985)
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
+    final path = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+    for (final point in offsets.skip(1)) {
       path.lineTo(point.dx, point.dy);
     }
     canvas.drawPath(path, paint);
     final dot = Paint()..color = const Color(0xFF149B78);
-    for (final point in points) {
+    for (final point in offsets) {
       canvas.drawCircle(point, 3.5, dot);
     }
   }
 
   @override
   bool shouldRepaint(covariant _MoodTrendPainter oldDelegate) =>
-      oldDelegate.values != values;
+      oldDelegate.points != points;
 }
 
 class _StudentContactActions extends StatelessWidget {
@@ -1227,15 +1685,6 @@ class _StudentIdentityCard extends StatelessWidget {
     ),
   );
 }
-
-int? _moodScore(String? mood) => switch (mood) {
-  'Great' => 5,
-  'Good' => 4,
-  'Okay' => 3,
-  'Low' => 2,
-  'Hard' => 1,
-  _ => null,
-};
 
 String _formatDate(DateTime value) {
   final date = value.toLocal();

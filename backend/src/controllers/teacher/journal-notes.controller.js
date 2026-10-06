@@ -120,3 +120,80 @@ export async function listAssignedStudentJournalNotes(request, response) {
     },
   });
 }
+
+export async function getAssignedStudentReflectionOverview(request, response) {
+  requireTeacher(request);
+  const student = await findStudent(request.params.studentId);
+  if (student.assignedTeacher?.toString() !== request.auth.sub) {
+    throw createHttpError(403, 'This student has not connected with your teacher account.');
+  }
+
+  const daysValue = request.query.days ?? '3';
+  if (daysValue !== 'all' && !['3', '5'].includes(daysValue)) {
+    throw createHttpError(400, 'Choose a valid reflection date range.');
+  }
+  const filter = { owner: student._id, isPrivate: true };
+  if (daysValue !== 'all') {
+    filter.createdAt = {
+      $gte: new Date(Date.now() - Number(daysValue) * 24 * 60 * 60 * 1000),
+    };
+  }
+
+  const moodScore = {
+    $switch: {
+      branches: [
+        { case: { $eq: ['$mood', 'Great'] }, then: 5 },
+        { case: { $eq: ['$mood', 'Good'] }, then: 4 },
+        { case: { $eq: ['$mood', 'Okay'] }, then: 3 },
+        { case: { $eq: ['$mood', 'Low'] }, then: 2 },
+        { case: { $eq: ['$mood', 'Hard'] }, then: 1 },
+      ],
+      default: null,
+    },
+  };
+  const [totalReflections, moods, trend, categories, feelings] = await Promise.all([
+    JournalNote.countDocuments(filter),
+    JournalNote.aggregate([
+      { $match: { ...filter, mood: { $in: ['Great', 'Good', 'Okay', 'Low', 'Hard'] } } },
+      { $group: { _id: '$mood', count: { $sum: 1 } } },
+    ]),
+    JournalNote.aggregate([
+      { $match: { ...filter, mood: { $in: ['Great', 'Good', 'Okay', 'Low', 'Hard'] } } },
+      { $addFields: { moodScore: moodScore } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Kolkata' } },
+          average: { $avg: '$moodScore' },
+          entries: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    JournalNote.aggregate([
+      { $match: filter },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 8 },
+    ]),
+    JournalNote.aggregate([
+      { $match: filter },
+      { $unwind: '$sections' },
+      { $unwind: '$sections.feelings' },
+      { $group: { _id: '$sections.feelings', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 8 },
+    ]),
+  ]);
+
+  return response.json({
+    success: true,
+    data: {
+      days: daysValue,
+      totalReflections,
+      moodCounts: Object.fromEntries(moods.map(({ _id, count }) => [_id, count])),
+      trend: trend.map((point) => ({ date: point._id, average: point.average, entries: point.entries })),
+      categoryCounts: categories.map(({ _id, count }) => ({ category: _id, count })),
+      feelings: feelings.map(({ _id, count }) => ({ feeling: _id, count })),
+    },
+  });
+}

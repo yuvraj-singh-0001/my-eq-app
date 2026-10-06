@@ -460,7 +460,9 @@ class _ReflectionSectionCard extends StatelessWidget {
           ],
           if (ownWords.isNotEmpty) ...[
             const SizedBox(height: 10),
-            const _SectionSubheading('In my own words'),
+            _SectionSubheading(
+              feelings.isNotEmpty ? 'Why I felt this way' : 'In my own words',
+            ),
             const SizedBox(height: 4),
             Container(
               width: double.infinity,

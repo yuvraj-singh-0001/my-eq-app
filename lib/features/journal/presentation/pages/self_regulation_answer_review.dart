@@ -117,7 +117,11 @@ class SelfRegulationAnswerReview extends StatelessWidget {
           ],
           if (answer.customText.trim().isNotEmpty) ...[
             const SizedBox(height: 11),
-            const _ReviewLabel('In my own words'),
+            _ReviewLabel(
+              answer.selectedFeelings.isNotEmpty
+                  ? 'Why I felt this way'
+                  : 'In my own words',
+            ),
             const SizedBox(height: 5),
             Container(
               width: double.infinity,

@@ -4,6 +4,8 @@ import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../authentication/data/auth_api.dart';
 import '../../../teacher/presentation/pages/my_students_page.dart';
 import '../../../teacher/presentation/pages/student_profile_page.dart';
+import '../../../teacher/presentation/pages/teacher_feedback_history_page.dart';
+import '../../../teacher/presentation/pages/teacher_requests_review_page.dart';
 import 'profile_page.dart';
 
 class TeacherDashboardPage extends StatefulWidget {
@@ -107,7 +109,9 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
     }
     if (index == 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teacher messages are not available yet.')),
+        const SnackBar(
+          content: Text('Teacher messages are not available yet.'),
+        ),
       );
       return;
     }
@@ -135,7 +139,10 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
     }
   }
 
-  Future<void> _respond(GrowthConnectionRequestData request, String decision) async {
+  Future<void> _respond(
+    GrowthConnectionRequestData request,
+    String decision,
+  ) async {
     final token = _token;
     if (token == null) return;
     setState(() => _workingRequest = request.id);
@@ -151,9 +158,11 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(decision == 'accept'
-                ? '${request.person.fullName} is now connected.'
-                : 'Request declined.'),
+            content: Text(
+              decision == 'accept'
+                  ? '${request.person.fullName} is now connected.'
+                  : 'Request declined.',
+            ),
           ),
         );
       }
@@ -181,6 +190,38 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
     );
   }
 
+  Future<void> _openFeedbackHistory() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => TeacherFeedbackHistoryPage(result: widget.result),
+      ),
+    );
+    if (mounted) _load(refresh: true);
+  }
+
+  Future<void> _openRequestsReview() async {
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => TeacherRequestsReviewPage(
+          result: widget.result,
+          onRequestsChanged: () => _load(refresh: true),
+        ),
+      ),
+    );
+    if (mounted) _load(refresh: true);
+  }
+
+  Future<void> _openConnectedStudents() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => MyStudentsPage(result: widget.result),
+      ),
+    );
+    if (mounted) _load(refresh: true);
+  }
+
   Future<void> _openProfile() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -195,10 +236,8 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
     if (token == null) return;
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => TeacherStudentProgressPage(
-          result: widget.result,
-          student: student,
-        ),
+        builder: (_) =>
+            TeacherStudentProgressPage(result: widget.result, student: student),
       ),
     );
   }
@@ -213,8 +252,10 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
         backgroundColor: const Color(0xFFF5F8FC),
         foregroundColor: const Color(0xFF172A4D),
         elevation: 0,
-        title: const Text('Teacher dashboard',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Teacher dashboard',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
@@ -237,7 +278,12 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
               child: ListView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(compact ? 16 : 22, 8, compact ? 16 : 22, 28),
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 16 : 22,
+                  8,
+                  compact ? 16 : 22,
+                  28,
+                ),
                 children: [
                   _WelcomeCard(
                     name: widget.result.fullName,
@@ -246,7 +292,10 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                   ),
                   const SizedBox(height: 16),
                   if (_error != null)
-                    _ErrorCard(message: _error!, onRetry: () => _load(refresh: true))
+                    _ErrorCard(
+                      message: _error!,
+                      onRetry: () => _load(refresh: true),
+                    )
                   else if (_loading)
                     const Padding(
                       padding: EdgeInsets.all(28),
@@ -256,47 +305,95 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                     KeyedSubtree(
                       key: _insightsKey,
                       child: Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                       children: [
-                    _DashboardHeading(
-                      title: 'Class at a glance',
-                      subtitle: 'A quick view of the students you support.',
-                    ),
-                    const SizedBox(height: 10),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 760
-                            ? 3
-                            : (constraints.maxWidth >= 500 ? 2 : 1);
-                        final spacing = 10.0;
-                        final cardWidth = (constraints.maxWidth - spacing * (columns - 1)) / columns;
-                        return Wrap(
-                          spacing: spacing,
-                          runSpacing: spacing,
-                          children: [
-                            SizedBox(width: cardWidth, child: _MetricCard(label: 'Students connected', value: '${_students.length}', icon: Icons.groups_rounded, color: const Color(0xFF149B78), tint: const Color(0xFFE6F7F2))),
-                            SizedBox(width: cardWidth, child: _MetricCard(label: 'Feedback shared', value: '${_activity?.totalFeedbackEntries ?? 0}', icon: Icons.forum_outlined, color: const Color(0xFF287ACB), tint: const Color(0xFFEAF3FF))),
-                            SizedBox(width: cardWidth, child: _MetricCard(label: 'Requests to review', value: '${_incoming.length}', icon: Icons.mark_email_unread_outlined, color: const Color(0xFF8752C8), tint: const Color(0xFFF2ECFF))),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _GrowthPulseCard(
-                      improving: _overview.values.where((item) => item.latestProgress == 'improving').length,
-                      needsSupport: _overview.values.where((item) => item.latestProgress == 'harder').length,
-                      waiting: _overview.values.where((item) => item.checkIns == 0).length,
-                    ),
-                       ],
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _DashboardHeading(
+                            title: 'Class at a glance',
+                            subtitle:
+                                'A quick view of the students you support.',
+                          ),
+                          const SizedBox(height: 10),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final columns = constraints.maxWidth >= 760
+                                  ? 3
+                                  : (constraints.maxWidth >= 500 ? 2 : 1);
+                              final spacing = 10.0;
+                              final cardWidth =
+                                  (constraints.maxWidth -
+                                      spacing * (columns - 1)) /
+                                  columns;
+                              return Wrap(
+                                spacing: spacing,
+                                runSpacing: spacing,
+                                children: [
+                                  SizedBox(
+                                    width: cardWidth,
+                                    child: _MetricCard(
+                                      label: 'Students connected',
+                                      value: '${_students.length}',
+                                      icon: Icons.groups_rounded,
+                                      color: const Color(0xFF149B78),
+                                      tint: const Color(0xFFE6F7F2),
+                                      onTap: _openConnectedStudents,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: cardWidth,
+                                    child: _MetricCard(
+                                      label: 'Feedback shared',
+                                      value:
+                                          '${_activity?.totalFeedbackEntries ?? 0}',
+                                      icon: Icons.forum_outlined,
+                                      color: const Color(0xFF287ACB),
+                                      tint: const Color(0xFFEAF3FF),
+                                      onTap: _openFeedbackHistory,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: cardWidth,
+                                    child: _MetricCard(
+                                      label: 'Requests to review',
+                                      value: '${_incoming.length}',
+                                      icon: Icons.mark_email_unread_outlined,
+                                      color: const Color(0xFF8752C8),
+                                      tint: const Color(0xFFF2ECFF),
+                                      onTap: _openRequestsReview,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _GrowthPulseCard(
+                            improving: _overview.values
+                                .where(
+                                  (item) => item.latestProgress == 'improving',
+                                )
+                                .length,
+                            needsSupport: _overview.values
+                                .where(
+                                  (item) => item.latestProgress == 'harder',
+                                )
+                                .length,
+                            waiting: _overview.values
+                                .where((item) => item.checkIns == 0)
+                                .length,
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 22),
                     KeyedSubtree(
                       key: _requestsKey,
                       child: _DashboardHeading(
-                      title: 'Connection requests',
-                      subtitle: 'Accept students you are ready to support.',
-                      trailing: TextButton(onPressed: _openPeople, child: const Text('Manage')),
+                        title: 'Connection requests',
+                        subtitle: 'Accept students you are ready to support.',
+                        trailing: TextButton(
+                          onPressed: _openPeople,
+                          child: const Text('Manage'),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -325,13 +422,16 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                     KeyedSubtree(
                       key: _studentsKey,
                       child: _DashboardHeading(
-                      title: 'Your students',
-                      subtitle: 'Open a student profile to review progress and share feedback.',
-                      trailing: TextButton.icon(
-                        onPressed: _openPeople,
-                        icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
-                        label: const Text('Add'),
-                      ),
+                        title: 'Your students',
+                        subtitle: 'Open a student profile to review progress and share feedback.',
+                        trailing: TextButton.icon(
+                          onPressed: _openPeople,
+                          icon: const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            size: 17,
+                          ),
+                          label: const Text('Add'),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -371,7 +471,11 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 }
 
 class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard({required this.name, required this.teacherId, required this.onManage});
+  const _WelcomeCard({
+    required this.name,
+    required this.teacherId,
+    required this.onManage,
+  });
   final String name;
   final String? teacherId;
   final VoidCallback onManage;
@@ -379,8 +483,9 @@ class _WelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final imageWidth =
-          (constraints.maxWidth * .57).clamp(140.0, 230.0).toDouble();
+      final imageWidth = (constraints.maxWidth * .57)
+          .clamp(140.0, 230.0)
+          .toDouble();
       return Container(
         height: 222,
         clipBehavior: Clip.antiAlias,
@@ -468,9 +573,7 @@ class _WelcomeCard extends StatelessWidget {
                     onPressed: onManage,
                     icon: const Icon(Icons.groups_2_rounded, size: 16),
                     label: Text(
-                      constraints.maxWidth < 380
-                          ? 'Manage'
-                          : 'Manage students',
+                      constraints.maxWidth < 380 ? 'Manage' : 'Manage students',
                     ),
                     style: FilledButton.styleFrom(
                       foregroundColor: const Color(0xFF13886D),
@@ -490,45 +593,130 @@ class _WelcomeCard extends StatelessWidget {
 }
 
 class _DashboardHeading extends StatelessWidget {
-  const _DashboardHeading({required this.title, required this.subtitle, this.trailing});
+  const _DashboardHeading({
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
   final String title;
   final String subtitle;
   final Widget? trailing;
   @override
-  Widget build(BuildContext context) => Row(children: [
-    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(color: Color(0xFF203454), fontSize: 17, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 3),
-      Text(subtitle, style: const TextStyle(color: Color(0xFF78859B), fontSize: 11, height: 1.35)),
-    ])),
-    ?trailing,
-  ]);
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF203454),
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFF78859B),
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
+      ?trailing,
+    ],
+  );
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value, required this.icon, required this.color, required this.tint});
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.tint,
+    required this.onTap,
+  });
   final String label;
   final String value;
   final IconData icon;
   final Color color;
   final Color tint;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(11),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE7EDF3))),
-    child: Row(children: [
-      Container(width: 34, height: 34, decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(11)), child: Icon(icon, color: color, size: 18)),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
-        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF78859B), fontSize: 10, fontWeight: FontWeight.w600)),
-      ])),
-    ]),
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE7EDF3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: tint,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF78859B),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: color.withValues(alpha: .72),
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
 class _RequestCard extends StatelessWidget {
-  const _RequestCard({required this.request, required this.busy, required this.onAccept, required this.onDecline});
+  const _RequestCard({
+    required this.request,
+    required this.busy,
+    required this.onAccept,
+    required this.onDecline,
+  });
   final GrowthConnectionRequestData request;
   final bool busy;
   final VoidCallback onAccept;
@@ -537,37 +725,139 @@ class _RequestCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 9),
     padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE7EDF3))),
-    child: Row(children: [
-      const CircleAvatar(backgroundColor: Color(0xFFF2ECFF), child: Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF8752C8), size: 19)),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(request.person.fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF203454), fontSize: 13, fontWeight: FontWeight.w800)),
-        Text([if (request.person.accountId?.isNotEmpty == true) request.person.accountId!, if (request.person.className?.isNotEmpty == true) request.person.className!].join(' · ').isEmpty ? 'Student connection request' : [if (request.person.accountId?.isNotEmpty == true) request.person.accountId!, if (request.person.className?.isNotEmpty == true) request.person.className!].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF78859B), fontSize: 10)),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, children: [
-          FilledButton(onPressed: busy ? null : onAccept, style: FilledButton.styleFrom(backgroundColor: const Color(0xFF149B78), minimumSize: const Size(88, 34), padding: const EdgeInsets.symmetric(horizontal: 12)), child: busy ? const SizedBox.square(dimension: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Accept', style: TextStyle(fontSize: 11))),
-          OutlinedButton(onPressed: busy ? null : onDecline, style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF68768C), minimumSize: const Size(88, 34), padding: const EdgeInsets.symmetric(horizontal: 12)), child: const Text('Decline', style: TextStyle(fontSize: 11))),
-        ]),
-      ])),
-    ]),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFE7EDF3)),
+    ),
+    child: Row(
+      children: [
+        const CircleAvatar(
+          backgroundColor: Color(0xFFF2ECFF),
+          child: Icon(
+            Icons.person_add_alt_1_rounded,
+            color: Color(0xFF8752C8),
+            size: 19,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                request.person.fullName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF203454),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                [
+                      if (request.person.accountId?.isNotEmpty == true)
+                        request.person.accountId!,
+                      if (request.person.className?.isNotEmpty == true)
+                        request.person.className!,
+                    ].join(' · ').isEmpty
+                    ? 'Student connection request'
+                    : [
+                        if (request.person.accountId?.isNotEmpty == true)
+                          request.person.accountId!,
+                        if (request.person.className?.isNotEmpty == true)
+                          request.person.className!,
+                      ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xFF78859B), fontSize: 10),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton(
+                    onPressed: busy ? null : onAccept,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF149B78),
+                      minimumSize: const Size(88, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: busy
+                        ? const SizedBox.square(
+                            dimension: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Accept', style: TextStyle(fontSize: 11)),
+                  ),
+                  OutlinedButton(
+                    onPressed: busy ? null : onDecline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF68768C),
+                      minimumSize: const Size(88, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: const Text(
+                      'Decline',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }
 
 class _StudentCard extends StatelessWidget {
-  const _StudentCard({required this.student, required this.overview, required this.onTap});
+  const _StudentCard({
+    required this.student,
+    required this.overview,
+    required this.onTap,
+  });
   final GrowthConnectionData student;
   final TeacherStudentOverviewData? overview;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 9),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE7EDF3))),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFE7EDF3)),
+    ),
     child: ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-      leading: CircleAvatar(backgroundColor: const Color(0xFFE6F7F2), child: Text(student.fullName.trim().isEmpty ? '?' : student.fullName.trim()[0].toUpperCase(), style: const TextStyle(color: Color(0xFF149B78), fontWeight: FontWeight.w800))),
-      title: Text(student.fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF203454), fontSize: 13, fontWeight: FontWeight.w800)),
+      leading: CircleAvatar(
+        backgroundColor: const Color(0xFFE6F7F2),
+        child: Text(
+          student.fullName.trim().isEmpty
+              ? '?'
+              : student.fullName.trim()[0].toUpperCase(),
+          style: const TextStyle(
+            color: Color(0xFF149B78),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      title: Text(
+        student.fullName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF203454),
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -575,7 +865,8 @@ class _StudentCard extends StatelessWidget {
             [
               if (student.accountId?.isNotEmpty == true) student.accountId!,
               if (student.className?.isNotEmpty == true) student.className!,
-              if (student.section?.isNotEmpty == true) 'Section ${student.section}',
+              if (student.section?.isNotEmpty == true)
+                'Section ${student.section}',
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -585,7 +876,10 @@ class _StudentCard extends StatelessWidget {
           _StudentProgressStatus(overview: overview),
         ],
       ),
-      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF8B98AA)),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: Color(0xFF8B98AA),
+      ),
     ),
   );
 }
@@ -597,10 +891,30 @@ class _StudentProgressStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final latestProgress = overview?.latestProgress;
     final (label, color, tint, icon) = switch (latestProgress) {
-      'improving' => ('Making progress', const Color(0xFF13876B), const Color(0xFFE6F7F1), Icons.trending_up_rounded),
-      'steady' => ('Taking steady steps', const Color(0xFF2977BA), const Color(0xFFEAF3FF), Icons.trending_flat_rounded),
-      'harder' => ('Could use more support', const Color(0xFFB45C39), const Color(0xFFFFF0E8), Icons.volunteer_activism_outlined),
-      _ => ('No check-ins yet', const Color(0xFF7462A6), const Color(0xFFF1EDFA), Icons.hourglass_empty_rounded),
+      'improving' => (
+        'Making progress',
+        const Color(0xFF13876B),
+        const Color(0xFFE6F7F1),
+        Icons.trending_up_rounded,
+      ),
+      'steady' => (
+        'Taking steady steps',
+        const Color(0xFF2977BA),
+        const Color(0xFFEAF3FF),
+        Icons.trending_flat_rounded,
+      ),
+      'harder' => (
+        'Could use more support',
+        const Color(0xFFB45C39),
+        const Color(0xFFFFF0E8),
+        Icons.volunteer_activism_outlined,
+      ),
+      _ => (
+        'No check-ins yet',
+        const Color(0xFF7462A6),
+        const Color(0xFFF1EDFA),
+        Icons.hourglass_empty_rounded,
+      ),
     };
     return Wrap(
       spacing: 7,
@@ -609,22 +923,42 @@ class _StudentProgressStatus extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-          decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
-          ]),
+          decoration: BoxDecoration(
+            color: tint,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
         if ((overview?.checkIns ?? 0) > 0)
-          Text('${overview!.checkIns} updates', style: const TextStyle(color: Color(0xFF8995A7), fontSize: 9)),
+          Text(
+            '${overview!.checkIns} updates',
+            style: const TextStyle(color: Color(0xFF8995A7), fontSize: 9),
+          ),
       ],
     );
   }
 }
 
 class _GrowthPulseCard extends StatelessWidget {
-  const _GrowthPulseCard({required this.improving, required this.needsSupport, required this.waiting});
+  const _GrowthPulseCard({
+    required this.improving,
+    required this.needsSupport,
+    required this.waiting,
+  });
   final int improving;
   final int needsSupport;
   final int waiting;
@@ -635,23 +969,57 @@ class _GrowthPulseCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: const Color(0xFF183057),
       borderRadius: BorderRadius.circular(20),
-      boxShadow: const [BoxShadow(color: Color(0x14203050), blurRadius: 14, offset: Offset(0, 5))],
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x14203050),
+          blurRadius: 14,
+          offset: Offset(0, 5),
+        ),
+      ],
     ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Row(children: [
-        Icon(Icons.insights_rounded, color: Color(0xFF79D8BD), size: 19),
-        SizedBox(width: 8),
-        Text('Growth pulse', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-      ]),
-      const SizedBox(height: 5),
-      const Text('A helpful snapshot from the latest student, family and teacher updates.', style: TextStyle(color: Color(0xFFC4D0E0), fontSize: 10, height: 1.4)),
-      const SizedBox(height: 13),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        _PulsePill(label: '$improving making progress', color: const Color(0xFF85E0C2)),
-        _PulsePill(label: '$needsSupport may need support', color: const Color(0xFFFFC39E)),
-        _PulsePill(label: '$waiting without check-ins', color: const Color(0xFFD4C4FF)),
-      ]),
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.insights_rounded, color: Color(0xFF79D8BD), size: 19),
+            SizedBox(width: 8),
+            Text(
+              'Growth pulse',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'A helpful snapshot from the latest student, family and teacher updates.',
+          style: TextStyle(color: Color(0xFFC4D0E0), fontSize: 10, height: 1.4),
+        ),
+        const SizedBox(height: 13),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _PulsePill(
+              label: '$improving making progress',
+              color: const Color(0xFF85E0C2),
+            ),
+            _PulsePill(
+              label: '$needsSupport may need support',
+              color: const Color(0xFFFFC39E),
+            ),
+            _PulsePill(
+              label: '$waiting without check-ins',
+              color: const Color(0xFFD4C4FF),
+            ),
+          ],
+        ),
+      ],
+    ),
   );
 }
 
@@ -662,8 +1030,14 @@ class _PulsePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-    decoration: BoxDecoration(color: Colors.white.withValues(alpha: .09), borderRadius: BorderRadius.circular(22)),
-    child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(22),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+    ),
   );
 }
 
@@ -676,13 +1050,27 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE7EDF3))),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, color: const Color(0xFF149B78), size: 21),
-      const SizedBox(height: 8),
-      Text(text, style: const TextStyle(color: Color(0xFF78859B), fontSize: 12, height: 1.45)),
-      if (action != null) ...[const SizedBox(height: 10), action!],
-    ]),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFE7EDF3)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF149B78), size: 21),
+        const SizedBox(height: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFF78859B),
+            fontSize: 12,
+            height: 1.45,
+          ),
+        ),
+        if (action != null) ...[const SizedBox(height: 10), action!],
+      ],
+    ),
   );
 }
 
@@ -694,7 +1082,11 @@ class _ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) => _EmptyCard(
     icon: Icons.cloud_off_rounded,
     text: message,
-    action: TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('Try again')),
+    action: TextButton.icon(
+      onPressed: onRetry,
+      icon: const Icon(Icons.refresh_rounded),
+      label: const Text('Try again'),
+    ),
   );
 }
 
@@ -703,11 +1095,26 @@ class _PrivacyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(color: const Color(0xFFEAF7F4), borderRadius: BorderRadius.circular(15)),
-    child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(Icons.shield_outlined, color: Color(0xFF149B78), size: 18),
-      SizedBox(width: 9),
-      Expanded(child: Text('Student growth details are available only for students connected to your teacher account.', style: TextStyle(color: Color(0xFF52736B), fontSize: 11, height: 1.4))),
-    ]),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF7F4),
+      borderRadius: BorderRadius.circular(15),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.shield_outlined, color: Color(0xFF149B78), size: 18),
+        SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            'Student growth details are available only for students connected to your teacher account.',
+            style: TextStyle(
+              color: Color(0xFF52736B),
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }

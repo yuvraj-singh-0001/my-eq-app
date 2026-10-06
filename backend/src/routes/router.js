@@ -22,7 +22,7 @@ import {
 import {
   getTeacherActivity,
 } from '../controllers/admin/teacher-activity.controller.js';
-import { listAssignedStudentJournalNotes } from '../controllers/teacher/journal-notes.controller.js';
+import { getAssignedStudentReflectionOverview, listAssignedStudentJournalNotes } from '../controllers/teacher/journal-notes.controller.js';
 import { completeGoal, createGoal, getGoal, listGoals, updateGoalProgress } from '../controllers/teacher/goals.controller.js';
 import {
   connectToStudent as connectParentToStudent,
@@ -78,6 +78,7 @@ router.get('/parent/students/:studentId/growth-summary', authenticate, getParent
 router.post('/teacher/students/:studentId/growth-feedback', authenticate, submitTeacherGrowthFeedback);
 router.get('/teacher/students/:studentId/growth-summary', authenticate, getTeacherStudentGrowthSummary);
 router.get('/teacher/students/:studentId/reflections', authenticate, listAssignedStudentJournalNotes);
+router.get('/teacher/students/:studentId/reflection-overview', authenticate, getAssignedStudentReflectionOverview);
 router.get('/teacher/students/:studentId/goals', authenticate, listGoals);
 router.post('/teacher/students/:studentId/goals', authenticate, createGoal);
 router.get('/teacher/students/:studentId/goals/:goalId', authenticate, getGoal);

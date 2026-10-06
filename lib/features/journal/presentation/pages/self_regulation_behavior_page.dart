@@ -24,6 +24,7 @@ class _SelfRegulationBehaviorPageState
   late final Set<String> _selectedFeelings;
   late final TextEditingController _customController;
   String _search = '';
+  String? _contextError;
 
   @override
   void initState() {
@@ -42,6 +43,13 @@ class _SelfRegulationBehaviorPageState
   }
 
   void _continue() {
+    if (_selectedFeelings.isNotEmpty && _customController.text.trim().isEmpty) {
+      setState(() {
+        _contextError =
+            'Please add a few words about what was happening or what might help. You can write “I’m not sure” or share only what feels comfortable.';
+      });
+      return;
+    }
     Navigator.of(context).pop(_currentAnswer);
   }
 
@@ -235,8 +243,10 @@ class _SelfRegulationBehaviorPageState
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Or write anything else you want to share',
+                  Text(
+                    _selectedFeelings.isNotEmpty
+                        ? 'What was happening when you felt this way? *'
+                        : 'Anything else you want to share',
                     style: TextStyle(
                       color: Color(0xFF203454),
                       fontSize: 14,
@@ -246,13 +256,15 @@ class _SelfRegulationBehaviorPageState
                   const SizedBox(height: 7),
                   TextField(
                     controller: _customController,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => setState(() => _contextError = null),
                     minLines: 3,
                     maxLines: 5,
                     maxLength: 250,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
-                      hintText: 'What would you like to add?',
+                      hintText: _selectedFeelings.isNotEmpty
+                          ? 'Add a little context (required when a feeling is selected)'
+                          : 'What would you like to add?',
                       hintStyle: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF8994AA),
@@ -277,6 +289,27 @@ class _SelfRegulationBehaviorPageState
                       ),
                     ),
                   ),
+                  if (_contextError != null) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      _contextError!,
+                      style: const TextStyle(
+                        color: Color(0xFFB45C39),
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ] else if (_selectedFeelings.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    const Text(
+                      'This helps your teacher understand how to support you. Share only what you feel comfortable sharing.',
+                      style: TextStyle(
+                        color: Color(0xFF78859B),
+                        fontSize: 10,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   SelfRegulationAnswerReview(
                     topic: widget.topic,

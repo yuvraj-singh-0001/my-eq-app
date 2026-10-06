@@ -272,6 +272,52 @@ class TeacherActivityData {
       );
 }
 
+class TeacherFeedbackActivityData {
+  const TeacherFeedbackActivityData({
+    required this.studentId,
+    required this.studentName,
+    required this.className,
+    required this.section,
+    required this.focusArea,
+    required this.progress,
+    required this.observedBehaviors,
+    required this.whatHelped,
+    required this.whatWasHard,
+    required this.nextStep,
+    required this.createdAt,
+  });
+
+  final String? studentId;
+  final String? studentName;
+  final String? className;
+  final String? section;
+  final String focusArea;
+  final String progress;
+  final List<String> observedBehaviors;
+  final String whatHelped;
+  final String whatWasHard;
+  final String nextStep;
+  final DateTime? createdAt;
+
+  factory TeacherFeedbackActivityData.fromJson(Map<String, dynamic> json) =>
+      TeacherFeedbackActivityData(
+        studentId: json['studentId'] as String?,
+        studentName: json['studentName'] as String?,
+        className: json['className'] as String?,
+        section: json['section'] as String?,
+        focusArea: json['focusArea'] as String? ?? '',
+        progress: json['progress'] as String? ?? 'not_sure',
+        observedBehaviors:
+            (json['observedBehaviors'] as List<dynamic>? ?? const [])
+                .whereType<String>()
+                .toList(growable: false),
+        whatHelped: json['whatHelped'] as String? ?? '',
+        whatWasHard: json['whatWasHard'] as String? ?? '',
+        nextStep: json['nextStep'] as String? ?? '',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      );
+}
+
 class TeacherStudentOverviewData {
   const TeacherStudentOverviewData({
     required this.studentId,
@@ -371,6 +417,85 @@ class JournalNotesPage {
   final List<JournalNoteData> notes;
   final bool hasMore;
   final String? nextCursor;
+}
+
+class ReflectionCountData {
+  const ReflectionCountData({required this.label, required this.count});
+  final String label;
+  final int count;
+
+  factory ReflectionCountData.fromJson(
+    Map<String, dynamic> json, {
+    required String labelKey,
+  }) => ReflectionCountData(
+    label: json[labelKey] as String? ?? '',
+    count: (json['count'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class MoodTrendPointData {
+  const MoodTrendPointData({
+    required this.date,
+    required this.average,
+    required this.entries,
+  });
+  final DateTime date;
+  final double average;
+  final int entries;
+
+  factory MoodTrendPointData.fromJson(Map<String, dynamic> json) =>
+      MoodTrendPointData(
+        date:
+            DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+        average: (json['average'] as num?)?.toDouble() ?? 0,
+        entries: (json['entries'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class StudentReflectionOverviewData {
+  const StudentReflectionOverviewData({
+    required this.days,
+    required this.totalReflections,
+    required this.moodCounts,
+    required this.trend,
+    required this.categoryCounts,
+    required this.feelings,
+  });
+
+  final String days;
+  final int totalReflections;
+  final Map<String, int> moodCounts;
+  final List<MoodTrendPointData> trend;
+  final List<ReflectionCountData> categoryCounts;
+  final List<ReflectionCountData> feelings;
+
+  factory StudentReflectionOverviewData.fromJson(Map<String, dynamic> json) {
+    final rawMoods = json['moodCounts'] as Map<String, dynamic>? ?? const {};
+    return StudentReflectionOverviewData(
+      days: json['days'] as String? ?? '3',
+      totalReflections: (json['totalReflections'] as num?)?.toInt() ?? 0,
+      moodCounts: rawMoods.map(
+        (key, value) => MapEntry(key, (value as num).toInt()),
+      ),
+      trend: (json['trend'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(MoodTrendPointData.fromJson)
+          .toList(growable: false),
+      categoryCounts: (json['categoryCounts'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (value) =>
+                ReflectionCountData.fromJson(value, labelKey: 'category'),
+          )
+          .toList(growable: false),
+      feelings: (json['feelings'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (value) => ReflectionCountData.fromJson(value, labelKey: 'feeling'),
+          )
+          .toList(growable: false),
+    );
+  }
 }
 
 class GrowthGoalData {
@@ -1063,6 +1188,20 @@ class AuthApi {
     return TeacherActivityData.fromJson(data);
   }
 
+  static Future<List<TeacherFeedbackActivityData>> getTeacherActivityHistory(
+    String token,
+  ) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/activity/history',
+      fallbackMessage: 'Feedback history could not be loaded.',
+    );
+    return (data['activities'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(TeacherFeedbackActivityData.fromJson)
+        .toList(growable: false);
+  }
+
   static Future<List<TeacherStudentOverviewData>> getTeacherClassOverview(
     String token,
   ) async {
@@ -1297,6 +1436,52 @@ class AuthApi {
     } on FormatException {
       throw const AuthApiException(
         'The server returned invalid reflection data.',
+      );
+    }
+  }
+
+  static Future<StudentReflectionOverviewData>
+  getTeacherStudentReflectionOverview({
+    required String token,
+    required String studentId,
+    int? days,
+  }) async {
+    try {
+      final range = days?.toString() ?? 'all';
+      final uri = Uri.parse(
+        '$_baseUrl/auth/teacher/students/${Uri.encodeComponent(studentId)}/reflection-overview',
+      ).replace(queryParameters: {'days': range});
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ??
+              'Student reflection overview could not be loaded.',
+          statusCode: response.statusCode,
+        );
+      }
+      return StudentReflectionOverviewData.fromJson(
+        body['data'] as Map<String, dynamic>? ?? const {},
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to load the reflection overview.',
+      );
+    } on http.ClientException {
+      throw const AuthApiException(
+        'Cannot connect to load the reflection overview.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException(
+        'Loading the reflection overview timed out.',
+      );
+    } on FormatException {
+      throw const AuthApiException(
+        'The server returned invalid reflection overview data.',
       );
     }
   }

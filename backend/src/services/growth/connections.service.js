@@ -21,6 +21,7 @@ function toPerson(user, status = 'suggested') {
     accountId: user.studentId ?? user.teacherId ?? null,
     className: user.className ?? null,
     section: user.section ?? null,
+    schoolName: user.schoolName ?? null,
     status,
   };
 }
@@ -96,7 +97,7 @@ export async function findPeople(request, response) {
   }
 
   const people = await User.find(filter)
-    .select('fullName role username studentId teacherId className section')
+    .select('fullName role username studentId teacherId className section schoolName assignedTeacher')
     .sort({ fullName: 1 })
     .limit(search ? 20 : 12)
     .lean();
@@ -104,7 +105,11 @@ export async function findPeople(request, response) {
     success: true,
     data: {
       people: people
-        .map((person) => toPerson(person, status.get(String(person._id)) ?? 'suggested'))
+        .map((person) => toPerson(
+          person,
+          status.get(String(person._id)) ??
+            (user.role === 'teacher' && person.assignedTeacher ? 'unavailable' : 'suggested'),
+        ))
         .filter((person) => person.status !== 'connected'),
       needsSchool: !user.schoolName?.trim(),
     },
@@ -120,7 +125,7 @@ export async function sendConnectionRequest(request, response) {
     throw createHttpError(400, 'Enter a valid student or teacher ID or username.');
   }
   const requester = await User.findById(request.auth.sub)
-    .select('role schoolName assignedTeacher linkedPeers');
+    .select('role assignedTeacher linkedPeers');
   if (!requester) throw createHttpError(404, 'Your account was not found.');
 
   const normalizedIdentity = identity.toUpperCase();
@@ -131,22 +136,19 @@ export async function sendConnectionRequest(request, response) {
       { teacherId: normalizedIdentity },
     ],
     role: requester.role === 'teacher' ? 'student' : { $in: ['student', 'teacher'] },
-  }).select('_id role schoolName');
+  }).select('_id role');
   if (!recipient) throw createHttpError(404, 'No student or teacher account matched that ID or username.');
   if (String(recipient._id) === String(requester._id)) {
     throw createHttpError(400, 'You cannot send a connection request to yourself.');
   }
 
-  if (
-    requester.schoolName?.trim() && recipient.schoolName?.trim() &&
-    requester.schoolName.trim().toLowerCase() !== recipient.schoolName.trim().toLowerCase()
-  ) {
-    throw createHttpError(403, 'You can only connect with people from your school.');
-  }
   let alreadyConnected = false;
   if (requester.role === 'teacher' && recipient.role === 'student') {
     const student = await User.findById(recipient._id).select('assignedTeacher');
     alreadyConnected = String(student?.assignedTeacher ?? '') === String(requester._id);
+    if (student?.assignedTeacher && !alreadyConnected) {
+      throw createHttpError(409, 'This student already has a connected teacher.');
+    }
   } else if (recipient.role === 'teacher') {
     alreadyConnected = String(requester.assignedTeacher ?? '') === String(recipient._id);
   } else {

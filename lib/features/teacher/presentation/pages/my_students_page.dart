@@ -202,6 +202,16 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
           'My Students',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: _openConnectStudents,
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+            label: const Text('Connect'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF149B78),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

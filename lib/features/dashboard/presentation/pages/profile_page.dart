@@ -890,10 +890,7 @@ class _ProfilePageState extends State<ProfilePage> {
         )
       else ...[
         for (final note in _notes)
-          _JournalHistoryCard(
-            note: note,
-            onTap: () => _openJournalNote(note),
-          ),
+          _JournalHistoryCard(note: note, onTap: () => _openJournalNote(note)),
         if (_notesError != null)
           _JournalHistoryMessage(
             text: _notesError!,
@@ -976,73 +973,73 @@ class _JournalHistoryCard extends StatelessWidget {
               ],
             ),
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.edit_note_rounded,
-                color: Color(0xFF149B78),
-                size: 19,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  note.category,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF203454),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.lock_outline_rounded,
-                color: Color(0xFF8793A6),
-                size: 15,
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            _timestamp(note.createdAt),
-            style: const TextStyle(
-              color: Color(0xFF78859B),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (topics.isNotEmpty) ...[
-            const SizedBox(height: 9),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final topic in topics)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.edit_note_rounded,
+                      color: Color(0xFF149B78),
+                      size: 19,
                     ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAF7F4),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      topic,
-                      style: const TextStyle(
-                        color: Color(0xFF168D78),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        note.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF203454),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      color: Color(0xFF8793A6),
+                      size: 15,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _timestamp(note.createdAt),
+                  style: const TextStyle(
+                    color: Color(0xFF78859B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                if (topics.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final topic in topics)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF7F4),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            topic,
+                            style: const TextStyle(
+                              color: Color(0xFF168D78),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-            ),
-          ],
-        ],
             ),
           ),
         ),
@@ -1940,6 +1937,17 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
                       ),
                     ),
                   ],
+                  if (widget.role == 'teacher') ...[
+                    const SizedBox(height: 7),
+                    const Text(
+                      'You can look up any student by their exact ID or username. Their reflections and profile stay restricted until they accept your request.',
+                      style: TextStyle(
+                        color: Color(0xFF78859B),
+                        fontSize: 10,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 240),
@@ -2115,6 +2123,7 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
   Widget _personRow(GrowthConnectionData person) {
     final subtitle = [
       person.role == 'teacher' ? 'Teacher' : 'Student',
+      if (person.schoolName?.isNotEmpty == true) person.schoolName!,
       if (person.className != null) person.className!,
       if (person.accountId != null) person.accountId!,
     ].join(' · ');
@@ -2122,6 +2131,7 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
       'connected' => 'Connected',
       'request_sent' => 'Requested',
       'request_received' => 'Respond below',
+      'unavailable' => 'Teacher connected',
       _ => '',
     };
     return ListTile(

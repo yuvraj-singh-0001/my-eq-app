@@ -51,7 +51,7 @@ export async function getOwnActivityHistory(request, response) {
   })
     .sort({ createdAt: -1 })
     .limit(100)
-    .populate('student', 'fullName studentId')
+    .populate('student', 'fullName studentId className section')
     .lean();
   return response.json({
     success: true,
@@ -60,8 +60,14 @@ export async function getOwnActivityHistory(request, response) {
         type: 'growth_feedback_submitted',
         studentId: entry.student?.studentId ?? null,
         studentName: entry.student?.fullName ?? null,
+        className: entry.student?.className ?? null,
+        section: entry.student?.section ?? null,
         focusArea: entry.focusArea,
         progress: entry.progress,
+        observedBehaviors: entry.observedBehaviors,
+        whatHelped: entry.whatHelped,
+        whatWasHard: entry.whatWasHard,
+        nextStep: entry.nextStep,
         createdAt: entry.createdAt,
       })),
     },
