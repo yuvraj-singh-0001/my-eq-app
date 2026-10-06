@@ -90,3 +90,53 @@ export async function getOwnConnections(request, response) {
     },
   });
 }
+
+export async function getOwnClassOverview(request, response) {
+  requireTeacher(request);
+  const teacherId = request.auth.sub;
+  const students = await User.find({ assignedTeacher: teacherId, role: 'student' })
+    .select('_id fullName studentId className section')
+    .sort({ fullName: 1 })
+    .limit(100)
+    .lean();
+  if (students.length === 0) {
+    return response.json({ success: true, data: { students: [] } });
+  }
+  const studentIds = students.map((student) => student._id);
+  const updates = await GrowthFeedback.aggregate([
+    { $match: { student: { $in: studentIds } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: '$student',
+        checkIns: { $sum: 1 },
+        latestProgress: { $first: '$progress' },
+        latestFocusArea: { $first: '$focusArea' },
+        latestAt: { $first: '$createdAt' },
+        improvingCount: { $sum: { $cond: [{ $eq: ['$progress', 'improving'] }, 1, 0] } },
+        harderCount: { $sum: { $cond: [{ $eq: ['$progress', 'harder'] }, 1, 0] } },
+      },
+    },
+  ]);
+  const byStudent = new Map(updates.map((item) => [String(item._id), item]));
+  return response.json({
+    success: true,
+    data: {
+      students: students.map((student) => {
+        const update = byStudent.get(String(student._id));
+        return {
+          studentId: student.studentId,
+          fullName: student.fullName,
+          className: student.className ?? null,
+          section: student.section ?? null,
+          checkIns: update?.checkIns ?? 0,
+          improvingCount: update?.improvingCount ?? 0,
+          harderCount: update?.harderCount ?? 0,
+          latestProgress: update?.latestProgress ?? null,
+          latestFocusArea: update?.latestFocusArea ?? null,
+          latestAt: update?.latestAt ?? null,
+        };
+      }),
+    },
+  });
+}

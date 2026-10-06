@@ -8,7 +8,10 @@ import '../../../journal/presentation/pages/journal_page.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialRole = 0});
+
+  /// Role index used by the existing selector: student, teacher, parent.
+  final int initialRole;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -26,6 +29,12 @@ class _LoginPageState extends State<LoginPage> {
   bool _hasLoginError = false;
   String _errorMessage = '';
   int _selectedRole = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialRole.clamp(0, 2).toInt();
+  }
 
   @override
   void dispose() {
@@ -140,7 +149,10 @@ class _LoginPageState extends State<LoginPage> {
                           top: isCompact ? 90 : 105,
                           child: SizedBox(
                             width: isCompact ? 155 : 170,
-                            child: _WelcomeCopy(isCompact: isCompact),
+                            child: _WelcomeCopy(
+                              isCompact: isCompact,
+                              isTeacher: _selectedRole == 1,
+                            ),
                           ),
                         ),
                       ],
@@ -180,9 +192,10 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class _WelcomeCopy extends StatelessWidget {
-  const _WelcomeCopy({required this.isCompact});
+  const _WelcomeCopy({required this.isCompact, required this.isTeacher});
 
   final bool isCompact;
+  final bool isTeacher;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +203,7 @@ class _WelcomeCopy extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Welcome',
+          isTeacher ? 'Login as' : 'Welcome',
           style: TextStyle(
             color: const Color(0xFF10234B),
             fontSize: isCompact ? 31 : 35,
@@ -199,7 +212,7 @@ class _WelcomeCopy extends StatelessWidget {
           ),
         ),
         Text(
-          'Back!',
+          isTeacher ? 'Teacher' : 'Back!',
           style: TextStyle(
             color: const Color(0xFF149B78),
             fontSize: isCompact ? 31 : 35,
@@ -208,8 +221,10 @@ class _WelcomeCopy extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Glad to see you again.\nLet’s continue your journey\ntowards a better you.',
+        Text(
+          isTeacher
+              ? 'Sign in to support your students\nand follow their growth.'
+              : 'Glad to see you again.\nLet’s continue your journey\ntowards a better you.',
           style: TextStyle(
             color: Color(0xFF627087),
             fontSize: 12,
@@ -486,7 +501,7 @@ class _LoginFormPanel extends StatelessWidget {
                         ),
                       )
                     else ...[
-                      const Text('Login'),
+                      Text(selectedRole == 1 ? 'Login as Teacher' : 'Login'),
                       const SizedBox(width: 10),
                       const Icon(Icons.arrow_forward, size: 20),
                     ],

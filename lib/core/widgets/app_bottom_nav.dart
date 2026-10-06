@@ -5,10 +5,12 @@ class AppBottomNav extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.forTeacher = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final bool forTeacher;
 
   static const _destinations = <(IconData, String)>[
     (Icons.home_outlined, 'Home'),
@@ -18,8 +20,17 @@ class AppBottomNav extends StatelessWidget {
     (Icons.person_outline_rounded, 'Profile'),
   ];
 
+  static const _teacherDestinations = <(IconData, String)>[
+    (Icons.home_outlined, 'Home'),
+    (Icons.groups_outlined, 'Students'),
+    (Icons.insights_outlined, 'Insights'),
+    (Icons.forum_outlined, 'Messages'),
+    (Icons.more_horiz_rounded, 'More'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final destinations = forTeacher ? _teacherDestinations : _destinations;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -38,11 +49,11 @@ class AppBottomNav extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(7, 4, 7, 3),
           child: Row(
             children: [
-              for (var index = 0; index < _destinations.length; index++)
+              for (var index = 0; index < destinations.length; index++)
                 Expanded(
                   child: _NavItem(
-                    icon: _destinations[index].$1,
-                    label: _destinations[index].$2,
+                    icon: destinations[index].$1,
+                    label: destinations[index].$2,
                     selected: index == selectedIndex,
                     onTap: () => onDestinationSelected(index),
                   ),

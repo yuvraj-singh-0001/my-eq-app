@@ -256,6 +256,74 @@ class JournalNoteData {
   }
 }
 
+class TeacherActivityData {
+  const TeacherActivityData({
+    required this.totalFeedbackEntries,
+    required this.studentsSupported,
+  });
+
+  final int totalFeedbackEntries;
+  final int studentsSupported;
+
+  factory TeacherActivityData.fromJson(Map<String, dynamic> json) =>
+      TeacherActivityData(
+        totalFeedbackEntries: json['totalFeedbackEntries'] as int? ?? 0,
+        studentsSupported: json['studentsSupported'] as int? ?? 0,
+      );
+}
+
+class TeacherStudentOverviewData {
+  const TeacherStudentOverviewData({
+    required this.studentId,
+    required this.checkIns,
+    required this.improvingCount,
+    required this.harderCount,
+    this.latestProgress,
+    this.latestFocusArea,
+    this.latestAt,
+  });
+
+  final String studentId;
+  final int checkIns;
+  final int improvingCount;
+  final int harderCount;
+  final String? latestProgress;
+  final String? latestFocusArea;
+  final DateTime? latestAt;
+
+  factory TeacherStudentOverviewData.fromJson(Map<String, dynamic> json) =>
+      TeacherStudentOverviewData(
+        studentId: json['studentId'] as String? ?? '',
+        checkIns: json['checkIns'] as int? ?? 0,
+        improvingCount: json['improvingCount'] as int? ?? 0,
+        harderCount: json['harderCount'] as int? ?? 0,
+        latestProgress: json['latestProgress'] as String?,
+        latestFocusArea: json['latestFocusArea'] as String?,
+        latestAt: DateTime.tryParse(json['latestAt'] as String? ?? ''),
+      );
+}
+
+class StudentGrowthSummaryData {
+  const StudentGrowthSummaryData({
+    required this.totalCheckIns,
+    required this.byFocusArea,
+    required this.recent,
+  });
+
+  final int totalCheckIns;
+  final Map<String, dynamic> byFocusArea;
+  final List<Map<String, dynamic>> recent;
+
+  factory StudentGrowthSummaryData.fromJson(Map<String, dynamic> json) =>
+      StudentGrowthSummaryData(
+        totalCheckIns: json['totalCheckIns'] as int? ?? 0,
+        byFocusArea: json['byFocusArea'] as Map<String, dynamic>? ?? const {},
+        recent: (json['recent'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false),
+      );
+}
+
 class JournalNoteViewerData {
   const JournalNoteViewerData({
     required this.id,
@@ -305,6 +373,105 @@ class JournalNotesPage {
   final String? nextCursor;
 }
 
+class GrowthGoalData {
+  const GrowthGoalData({
+    required this.id,
+    required this.studentId,
+    required this.teacherId,
+    required this.title,
+    required this.category,
+    required this.currentProgress,
+    required this.status,
+    required this.startDate,
+    required this.createdAt,
+    required this.updatedAt,
+    this.description = '',
+    this.reviewDate,
+    this.currentValue,
+    this.targetValue,
+    this.teacherNote = '',
+    this.completedAt,
+    this.history = const [],
+  });
+
+  final String id;
+  final String studentId;
+  final String teacherId;
+  final String title;
+  final String category;
+  final String description;
+  final DateTime startDate;
+  final DateTime? reviewDate;
+  final int currentProgress;
+  final num? currentValue;
+  final num? targetValue;
+  final String teacherNote;
+  final String status;
+  final DateTime? completedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<GrowthGoalProgressData> history;
+
+  factory GrowthGoalData.fromJson(Map<String, dynamic> json) => GrowthGoalData(
+    id: json['id']?.toString() ?? '',
+    studentId: json['studentId']?.toString() ?? '',
+    teacherId: json['teacherId']?.toString() ?? '',
+    title: json['title'] as String? ?? 'Growth goal',
+    category: json['category'] as String? ?? 'Other',
+    description: json['description'] as String? ?? '',
+    startDate:
+        DateTime.tryParse(json['startDate'] as String? ?? '') ?? DateTime.now(),
+    reviewDate: DateTime.tryParse(json['reviewDate'] as String? ?? ''),
+    currentProgress: json['currentProgress'] as int? ?? 0,
+    currentValue: json['currentValue'] as num?,
+    targetValue: json['targetValue'] as num?,
+    teacherNote: json['teacherNote'] as String? ?? '',
+    status: json['status'] as String? ?? 'active',
+    completedAt: DateTime.tryParse(json['completedAt'] as String? ?? ''),
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+    updatedAt:
+        DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+    history: (json['history'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(GrowthGoalProgressData.fromJson)
+        .toList(growable: false),
+  );
+}
+
+class GrowthGoalProgressData {
+  const GrowthGoalProgressData({
+    required this.id,
+    required this.goalId,
+    required this.studentId,
+    required this.teacherId,
+    required this.progress,
+    required this.createdAt,
+    this.note = '',
+  });
+
+  final String id;
+  final String goalId;
+  final String studentId;
+  final String teacherId;
+  final int progress;
+  final String note;
+  final DateTime createdAt;
+
+  factory GrowthGoalProgressData.fromJson(Map<String, dynamic> json) =>
+      GrowthGoalProgressData(
+        id: json['id']?.toString() ?? '',
+        goalId: json['goalId']?.toString() ?? '',
+        studentId: json['studentId']?.toString() ?? '',
+        teacherId: json['teacherId']?.toString() ?? '',
+        progress: json['progress'] as int? ?? 0,
+        note: json['note'] as String? ?? '',
+        createdAt:
+            DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+            DateTime.now(),
+      );
+}
+
 class AuthApi {
   static const _configuredBaseUrl = String.fromEnvironment('MYEQ_API_BASE_URL');
 
@@ -336,6 +503,7 @@ class AuthApi {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AuthApiException(
           body['message'] as String? ?? 'Connected people could not be loaded.',
+          statusCode: response.statusCode,
         );
       }
       final people = body['data']?['connections'] as List<dynamic>? ?? const [];
@@ -881,6 +1049,337 @@ class AuthApi {
       );
     } on FormatException {
       throw const AuthApiException('The server returned invalid notes data.');
+    }
+  }
+
+  static Future<TeacherActivityData> getTeacherActivitySummary(
+    String token,
+  ) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/activity/summary',
+      fallbackMessage: 'Teacher activity could not be loaded.',
+    );
+    return TeacherActivityData.fromJson(data);
+  }
+
+  static Future<List<TeacherStudentOverviewData>> getTeacherClassOverview(
+    String token,
+  ) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/class/overview',
+      fallbackMessage: 'Class progress could not be loaded.',
+    );
+    return (data['students'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(TeacherStudentOverviewData.fromJson)
+        .toList(growable: false);
+  }
+
+  static Future<StudentGrowthSummaryData> getTeacherStudentGrowthSummary({
+    required String token,
+    required String studentId,
+  }) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/students/$studentId/growth-summary',
+      fallbackMessage: 'Student progress could not be loaded.',
+    );
+    return StudentGrowthSummaryData.fromJson(data);
+  }
+
+  static Future<List<GrowthGoalData>> getTeacherStudentGoals({
+    required String token,
+    required String studentId,
+    String? status,
+  }) async {
+    final data = await _teacherGoalRequest(
+      token: token,
+      studentId: studentId,
+      status: status,
+    );
+    return (data['goals'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(GrowthGoalData.fromJson)
+        .toList(growable: false);
+  }
+
+  static Future<GrowthGoalData> createTeacherStudentGoal({
+    required String token,
+    required String studentId,
+    required String title,
+    required String category,
+    required String description,
+    required String teacherNote,
+    DateTime? startDate,
+    DateTime? reviewDate,
+    num? currentValue,
+    num? targetValue,
+  }) async {
+    final data = await _teacherGoalRequest(
+      token: token,
+      studentId: studentId,
+      method: 'POST',
+      body: {
+        'title': title,
+        'category': category,
+        'description': description,
+        'teacherNote': teacherNote,
+        'startDate': ?startDate?.toUtc().toIso8601String(),
+        'reviewDate': ?reviewDate?.toUtc().toIso8601String(),
+        'currentValue': ?currentValue,
+        'targetValue': ?targetValue,
+      },
+    );
+    return GrowthGoalData.fromJson(
+      data['goal'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  static Future<GrowthGoalData> getTeacherStudentGoal({
+    required String token,
+    required String studentId,
+    required String goalId,
+  }) async {
+    final data = await _teacherGoalRequest(
+      token: token,
+      studentId: studentId,
+      goalId: goalId,
+    );
+    return GrowthGoalData.fromJson(
+      data['goal'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  static Future<void> updateTeacherStudentGoalProgress({
+    required String token,
+    required String studentId,
+    required String goalId,
+    required int progress,
+    required String note,
+    num? currentValue,
+  }) async {
+    await _teacherGoalRequest(
+      token: token,
+      studentId: studentId,
+      goalId: goalId,
+      leaf: 'progress',
+      method: 'PATCH',
+      body: {'progress': progress, 'note': note, 'currentValue': ?currentValue},
+    );
+  }
+
+  static Future<GrowthGoalData> completeTeacherStudentGoal({
+    required String token,
+    required String studentId,
+    required String goalId,
+  }) async {
+    final data = await _teacherGoalRequest(
+      token: token,
+      studentId: studentId,
+      goalId: goalId,
+      leaf: 'complete',
+      method: 'POST',
+    );
+    return GrowthGoalData.fromJson(
+      data['goal'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  static Future<Map<String, dynamic>> _teacherGoalRequest({
+    required String token,
+    required String studentId,
+    String? goalId,
+    String? leaf,
+    String method = 'GET',
+    String? status,
+    Map<String, Object?>? body,
+  }) async {
+    try {
+      final segments = [
+        '$_baseUrl/auth/teacher/students/${Uri.encodeComponent(studentId)}/goals',
+        if (goalId != null) Uri.encodeComponent(goalId),
+        if (leaf != null) Uri.encodeComponent(leaf),
+      ];
+      final query = status == null ? null : {'status': status};
+      final uri = Uri.parse(segments.join('/')).replace(queryParameters: query);
+      final headers = {
+        'Authorization': 'Bearer $token',
+        if (body != null) 'Content-Type': 'application/json',
+      };
+      final response = switch (method) {
+        'POST' =>
+          await http
+              .post(uri, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 10)),
+        'PATCH' =>
+          await http
+              .patch(uri, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 10)),
+        _ =>
+          await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 10)),
+      };
+      final decoded = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          decoded['message'] as String? ?? 'Goals could not be loaded.',
+          statusCode: response.statusCode,
+        );
+      }
+      return decoded['data'] as Map<String, dynamic>? ?? const {};
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load or save goals.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load or save goals.');
+    } on TimeoutException {
+      throw const AuthApiException(
+        'The goal request timed out. Please try again.',
+      );
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid goal data.');
+    }
+  }
+
+  static Future<JournalNotesPage> getTeacherStudentJournalNotes({
+    required String token,
+    required String studentId,
+    String? cursor,
+    String? category,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      final query = <String, String>{'limit': '20'};
+      if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+      if (category != null && category.isNotEmpty) query['category'] = category;
+      if (from != null) query['from'] = from.toUtc().toIso8601String();
+      if (to != null) query['to'] = to.toUtc().toIso8601String();
+      final uri = Uri.parse(
+        '$_baseUrl/auth/teacher/students/${Uri.encodeComponent(studentId)}/reflections',
+      ).replace(queryParameters: query);
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ??
+              'Student reflections could not be loaded.',
+          statusCode: response.statusCode,
+        );
+      }
+      final notes = body['data']?['notes'] as List<dynamic>? ?? const [];
+      return JournalNotesPage(
+        notes: notes
+            .whereType<Map<String, dynamic>>()
+            .map(JournalNoteData.fromJson)
+            .toList(growable: false),
+        hasMore: body['data']?['hasMore'] as bool? ?? false,
+        nextCursor: body['data']?['nextCursor'] as String?,
+      );
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to load student reflections.',
+      );
+    } on http.ClientException {
+      throw const AuthApiException(
+        'Cannot connect to load student reflections.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Loading student reflections timed out.');
+    } on FormatException {
+      throw const AuthApiException(
+        'The server returned invalid reflection data.',
+      );
+    }
+  }
+
+  static Future<void> submitTeacherStudentFeedback({
+    required String token,
+    required String studentId,
+    required String focusArea,
+    required String progress,
+    List<String> observedBehaviors = const [],
+    String whatHelped = '',
+    String whatWasHard = '',
+    String nextStep = '',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              '$_baseUrl/auth/teacher/students/$studentId/growth-feedback',
+            ),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'focusArea': focusArea,
+              'progress': progress,
+              'observedBehaviors': observedBehaviors,
+              'whatHelped': whatHelped,
+              'whatWasHard': whatWasHard,
+              'nextStep': nextStep,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Feedback could not be saved.',
+        );
+      }
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to save feedback.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to save feedback.');
+    } on TimeoutException {
+      throw const AuthApiException('Saving feedback timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid response.');
+    }
+  }
+
+  static Future<Map<String, dynamic>> _getGrowthData({
+    required String token,
+    required String path,
+    required String fallbackMessage,
+  }) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/$path'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? fallbackMessage,
+          statusCode: response.statusCode,
+        );
+      }
+      return body['data'] as Map<String, dynamic>? ?? const {};
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw AuthApiException('Cannot connect to load this information.');
+    } on http.ClientException {
+      throw AuthApiException('Cannot connect to load this information.');
+    } on TimeoutException {
+      throw AuthApiException('Loading this information timed out.');
+    } on FormatException {
+      throw AuthApiException(fallbackMessage);
     }
   }
 

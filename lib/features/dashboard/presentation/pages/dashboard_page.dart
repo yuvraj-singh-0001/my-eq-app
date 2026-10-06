@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../authentication/data/auth_api.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
 import 'profile_page.dart';
+import 'teacher_dashboard_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.result});
@@ -11,6 +12,9 @@ class DashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (result.role == 'teacher') {
+      return TeacherDashboardPage(result: result);
+    }
     final isTeacher = result.role == 'teacher';
     final isParent = result.role == 'parent';
     final roleName = isTeacher

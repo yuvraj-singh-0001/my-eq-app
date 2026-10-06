@@ -141,6 +141,18 @@ class HomePage extends StatelessWidget {
                           ),
                         ),
                       ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LoginPage(initialRole: 1),
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF149B78),
+                          minimumSize: const Size(180, 40),
+                        ),
+                        child: const Text('Login as Teacher'),
+                      ),
                     ],
                   ),
                 ),

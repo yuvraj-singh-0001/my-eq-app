@@ -7,6 +7,8 @@ import { JournalNoteView } from '../models/journal-note-view.js';
 import { GrowthFeedback } from '../models/growth-feedback.js';
 import { GrowthConnectionInvite } from '../models/growth-connection-invite.js';
 import { GrowthConnectionRequest } from '../models/growth-connection-request.js';
+import { GrowthGoal } from '../models/growth-goal.js';
+import { GrowthGoalProgress } from '../models/growth-goal-progress.js';
 
 export async function connectDatabase() {
   dns.setServers(config.mongodbDnsServers);
@@ -21,6 +23,8 @@ export async function connectDatabase() {
     GrowthFeedback.createIndexes(),
     GrowthConnectionInvite.createIndexes(),
     GrowthConnectionRequest.createIndexes(),
+    GrowthGoal.createIndexes(),
+    GrowthGoalProgress.createIndexes(),
   ]);
   console.log('MongoDB connected');
 }

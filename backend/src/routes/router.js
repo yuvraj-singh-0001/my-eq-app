@@ -22,6 +22,8 @@ import {
 import {
   getTeacherActivity,
 } from '../controllers/admin/teacher-activity.controller.js';
+import { listAssignedStudentJournalNotes } from '../controllers/teacher/journal-notes.controller.js';
+import { completeGoal, createGoal, getGoal, listGoals, updateGoalProgress } from '../controllers/teacher/goals.controller.js';
 import {
   connectToStudent as connectParentToStudent,
   getOwnConnections as getParentConnections,
@@ -37,6 +39,7 @@ import {
 import {
   getOwnActivityHistory,
   getOwnActivitySummary,
+  getOwnClassOverview,
   getOwnConnections as getTeacherConnections,
   getStudentGrowthSummary as getTeacherStudentGrowthSummary,
   submitStudentGrowthFeedback as submitTeacherGrowthFeedback,
@@ -74,8 +77,15 @@ router.post('/parent/students/:studentId/growth-feedback', authenticate, submitP
 router.get('/parent/students/:studentId/growth-summary', authenticate, getParentStudentGrowthSummary);
 router.post('/teacher/students/:studentId/growth-feedback', authenticate, submitTeacherGrowthFeedback);
 router.get('/teacher/students/:studentId/growth-summary', authenticate, getTeacherStudentGrowthSummary);
+router.get('/teacher/students/:studentId/reflections', authenticate, listAssignedStudentJournalNotes);
+router.get('/teacher/students/:studentId/goals', authenticate, listGoals);
+router.post('/teacher/students/:studentId/goals', authenticate, createGoal);
+router.get('/teacher/students/:studentId/goals/:goalId', authenticate, getGoal);
+router.patch('/teacher/students/:studentId/goals/:goalId/progress', authenticate, updateGoalProgress);
+router.post('/teacher/students/:studentId/goals/:goalId/complete', authenticate, completeGoal);
 router.get('/teacher/activity/summary', authenticate, getOwnActivitySummary);
 router.get('/teacher/activity/history', authenticate, getOwnActivityHistory);
+router.get('/teacher/class/overview', authenticate, getOwnClassOverview);
 router.get('/teacher/growth/connections', authenticate, getTeacherConnections);
 router.get('/teacher/growth/people', authenticate, getTeacherSuggestions);
 router.get('/teacher/growth/connection-requests', authenticate, listTeacherConnectionRequests);
