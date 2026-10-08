@@ -6,6 +6,7 @@ import '../../../teacher/presentation/pages/my_students_page.dart';
 import '../../../teacher/presentation/pages/student_profile_page.dart';
 import '../../../teacher/presentation/pages/teacher_feedback_history_page.dart';
 import '../../../teacher/presentation/pages/teacher_requests_review_page.dart';
+import '../../../teacher/presentation/pages/teacher_messages_page.dart';
 import 'profile_page.dart';
 
 class TeacherDashboardPage extends StatefulWidget {
@@ -108,11 +109,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
       return;
     }
     if (index == 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Teacher messages are not available yet.'),
-        ),
-      );
+      TeacherMessagesPage.open(context, widget.result);
       return;
     }
     final target = switch (index) {

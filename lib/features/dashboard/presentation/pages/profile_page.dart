@@ -7,6 +7,10 @@ import '../../../../core/widgets/app_bottom_nav.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import 'profile_edit_page.dart';
 import '../../../journal/presentation/pages/journal_note_detail_page.dart';
+import '../../../teacher/presentation/pages/my_students_page.dart';
+import '../../../teacher/presentation/pages/teacher_messages_page.dart';
+import '../../../teacher/presentation/pages/teacher_feedback_history_page.dart';
+import '../../../teacher/presentation/widgets/teacher_feedback_shortcut_card.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, required this.result});
@@ -37,6 +41,12 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _notesError;
   String? _error;
   String? _connectionsError;
+  TeacherActivityData? _teacherActivity;
+  List<TeacherCommunicationData> _teacherCommunications = const [];
+  List<GrowthConnectionData> _suggestedStudents = const [];
+  bool _loadingTeacherWorkspace = false;
+  String? _teacherWorkspaceError;
+  int _teacherWorkspaceRequestId = 0;
 
   @override
   void initState() {
@@ -45,7 +55,96 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
     _loadNotes();
     _loadConnections();
+    if (widget.result.role == 'teacher') _loadTeacherWorkspace();
   }
+
+  Future<void> _loadTeacherWorkspace() async {
+    final token = widget.result.token;
+    if (token == null || token.isEmpty || !mounted) return;
+    final requestId = ++_teacherWorkspaceRequestId;
+    setState(() {
+      _loadingTeacherWorkspace = true;
+      _teacherWorkspaceError = null;
+    });
+    try {
+      final values = await Future.wait<Object>([
+        AuthApi.getTeacherActivitySummary(token),
+        AuthApi.getTeacherCommunications(token),
+        AuthApi.searchGrowthPeople(token: token, role: 'teacher'),
+      ]);
+      if (!mounted || requestId != _teacherWorkspaceRequestId) return;
+      setState(() {
+        _teacherActivity = values[0] as TeacherActivityData;
+        _teacherCommunications = values[1] as List<TeacherCommunicationData>;
+        _suggestedStudents = (values[2] as GrowthPeopleResult).people;
+        _loadingTeacherWorkspace = false;
+      });
+    } on AuthApiException catch (error) {
+      if (!mounted || requestId != _teacherWorkspaceRequestId) return;
+      setState(() {
+        _teacherWorkspaceError = error.message;
+        _loadingTeacherWorkspace = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _teacherWorkspaceRequestId) return;
+      setState(() {
+        _teacherWorkspaceError = 'Teacher activity could not be loaded.';
+        _loadingTeacherWorkspace = false;
+      });
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    await _loadProfile();
+    if (widget.result.role == 'teacher' && mounted) {
+      await Future.wait([_loadConnections(), _loadTeacherWorkspace()]);
+    }
+  }
+
+  Future<void> _requestSuggestedStudent(GrowthConnectionData student) async {
+    final token = widget.result.token;
+    final identity = student.username ?? student.accountId;
+    if (token == null || identity == null || identity.isEmpty) return;
+    try {
+      await AuthApi.sendGrowthConnectionRequest(
+        token: token,
+        role: 'teacher',
+        identity: identity,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection request sent to ${student.fullName}.'),
+        ),
+      );
+      await _loadTeacherWorkspace();
+    } on AuthApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  Future<void> _openTeacherStudentFinder() async {
+    final token = widget.result.token;
+    if (token == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ConnectionRequestsPage(token: token, role: 'teacher'),
+      ),
+    );
+    if (mounted) {
+      await Future.wait([_loadConnections(), _loadTeacherWorkspace()]);
+    }
+  }
+
+  Future<void> _openTeacherFeedbackHistory() =>
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => TeacherFeedbackHistoryPage(result: widget.result),
+        ),
+      );
 
   UserProfileData get _cachedProfile => UserProfileData(
     id: '',
@@ -607,14 +706,16 @@ class _ProfilePageState extends State<ProfilePage> {
       drawer: _settingsDrawer(profile, isStudent),
       backgroundColor: const Color(0xFFF6F9FC),
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('My Profile'),
+            Text(profile.role == 'teacher' ? 'Teacher profile' : 'My Profile'),
             Text(
-              'Your personal information and settings',
-              style: TextStyle(fontSize: 11, color: Color(0xFF78859B)),
+              profile.role == 'teacher'
+                  ? 'Your classroom and support activity'
+                  : 'Your personal information and settings',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF78859B)),
             ),
           ],
         ),
@@ -634,7 +735,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _loadProfile,
+          onRefresh: _refreshProfile,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
@@ -645,177 +746,202 @@ class _ProfilePageState extends State<ProfilePage> {
                 accountId: _accountId,
                 isLoading: _isLoading,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (isStudent) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ProfileMetric(
-                              icon: Icons.menu_book_rounded,
-                              label: 'Journal notes',
-                              value: _isLoadingNotes && _notes.isEmpty
-                                  ? '...'
-                                  : '${_notes.length}${_hasMoreNotes ? '+' : ''}',
-                              color: const Color(0xFF149B78),
-                              background: const Color(0xFFE7F7F2),
-                            ),
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: _ProfileMetric(
-                              icon: Icons.groups_rounded,
-                              label: 'Connected people',
-                              value:
-                                  _isLoadingConnections && _connections.isEmpty
-                                  ? '...'
-                                  : '${_connections.length}',
-                              color: const Color(0xFF2682D8),
-                              background: const Color(0xFFEAF3FF),
-                            ),
-                          ),
-                        ],
+              if (profile.role == 'teacher')
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, .015),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
                       ),
-                    ],
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Material(
-                        color: const Color(0xFFFFF5E7),
-                        borderRadius: BorderRadius.circular(14),
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.cloud_off_rounded,
-                            color: Color(0xFFB66A12),
-                          ),
-                          title: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Color(0xFF714B1D),
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            tooltip: 'Try again',
-                            onPressed: _isLoading ? null : _loadProfile,
-                            icon: const Icon(Icons.refresh_rounded),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    _ProfileInfoCard(
-                      key: _accountDetailsKey,
-                      title: 'Account details',
-                      icon: Icons.verified_user_outlined,
-                      rows: [...details],
-                      onEdit: _editProfile,
                     ),
-                    if (isStudent) ...[
-                      const SizedBox(height: 12),
-                      _ProfileInfoCard(
-                        key: _schoolDetailsKey,
-                        title: 'School information',
-                        icon: Icons.school_outlined,
-                        rows: studentDetails,
-                        onEdit: _editProfile,
-                      ),
-                    ],
-                    if (!isStudent && profile.role == 'teacher') ...[
-                      const SizedBox(height: 12),
-                      _ProfileInfoCard(
-                        key: _schoolDetailsKey,
-                        title: 'Work information',
-                        icon: Icons.work_outline_rounded,
-                        rows: teacherDetails,
-                        onEdit: _editProfile,
-                      ),
-                    ],
-                    if (isStudent) ...[
-                      const SizedBox(height: 12),
-                      _ProfileInfoCard(
-                        key: _familyDetailsKey,
-                        title: 'Family contacts',
-                        icon: Icons.family_restroom_outlined,
-                        rows: familyDetails,
-                        onEdit: _editProfile,
-                      ),
-                    ],
-                    if (const {
-                      'student',
-                      'teacher',
-                      'parent',
-                    }.contains(profile.role)) ...[
-                      const SizedBox(height: 12),
-                      _ConnectedPeopleCard(
-                        key: _connectionsKey,
-                        people: _connections.take(2).toList(growable: false),
-                        totalCount: _connections.length,
-                        isLoading: _isLoadingConnections,
-                        error: _connectionsError,
-                        onRetry: _loadConnections,
-                        onConnect: _connectPeople,
-                        actionLabel: profile.role == 'parent'
-                            ? 'Connect with a student'
-                            : 'Manage people',
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    _PrivacyCard(key: _privacyKey),
-                    if (isStudent) ...[
-                      const SizedBox(height: 18),
-                      KeyedSubtree(
-                        key: _journalKey,
-                        child: _buildJournalHistory(),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF7F4),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.lock_outline_rounded,
-                            color: Color(0xFF168D78),
-                          ),
-                          SizedBox(width: 9),
-                          Expanded(
-                            child: Text(
-                              'You choose who can read your reflections. Connected students can see full notes only after you accept their request.',
-                              style: TextStyle(
-                                color: Color(0xFF456B65),
-                                fontSize: 11,
-                                height: 1.4,
+                    child: KeyedSubtree(
+                      key: ValueKey(_loadingTeacherWorkspace),
+                      child: _buildTeacherWorkspace(profile, teacherDetails),
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (isStudent) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ProfileMetric(
+                                icon: Icons.menu_book_rounded,
+                                label: 'Journal notes',
+                                value: _isLoadingNotes && _notes.isEmpty
+                                    ? '...'
+                                    : '${_notes.length}${_hasMoreNotes ? '+' : ''}',
+                                color: const Color(0xFF149B78),
+                                background: const Color(0xFFE7F7F2),
                               ),
                             ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: _ProfileMetric(
+                                icon: Icons.groups_rounded,
+                                label: 'Connected people',
+                                value:
+                                    _isLoadingConnections &&
+                                        _connections.isEmpty
+                                    ? '...'
+                                    : '${_connections.length}',
+                                color: const Color(0xFF2682D8),
+                                background: const Color(0xFFEAF3FF),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Material(
+                          color: const Color(0xFFFFF5E7),
+                          borderRadius: BorderRadius.circular(14),
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.cloud_off_rounded,
+                              color: Color(0xFFB66A12),
+                            ),
+                            title: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Color(0xFF714B1D),
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              tooltip: 'Try again',
+                              onPressed: _isLoading ? null : _loadProfile,
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
                           ),
-                        ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      _ProfileInfoCard(
+                        key: _accountDetailsKey,
+                        title: 'Account details',
+                        icon: Icons.verified_user_outlined,
+                        rows: [...details],
+                        onEdit: _editProfile,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _logout,
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Log out'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFE34D5B),
-                        side: const BorderSide(color: Color(0xFFF2C6CB)),
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                      if (isStudent) ...[
+                        const SizedBox(height: 12),
+                        _ProfileInfoCard(
+                          key: _schoolDetailsKey,
+                          title: 'School information',
+                          icon: Icons.school_outlined,
+                          rows: studentDetails,
+                          onEdit: _editProfile,
+                        ),
+                      ],
+                      if (!isStudent && profile.role == 'teacher') ...[
+                        const SizedBox(height: 12),
+                        _ProfileInfoCard(
+                          key: _schoolDetailsKey,
+                          title: 'Work information',
+                          icon: Icons.work_outline_rounded,
+                          rows: teacherDetails,
+                          onEdit: _editProfile,
+                        ),
+                      ],
+                      if (isStudent) ...[
+                        const SizedBox(height: 12),
+                        _ProfileInfoCard(
+                          key: _familyDetailsKey,
+                          title: 'Family contacts',
+                          icon: Icons.family_restroom_outlined,
+                          rows: familyDetails,
+                          onEdit: _editProfile,
+                        ),
+                      ],
+                      if (const {
+                        'student',
+                        'teacher',
+                        'parent',
+                      }.contains(profile.role)) ...[
+                        const SizedBox(height: 12),
+                        _ConnectedPeopleCard(
+                          key: _connectionsKey,
+                          people: _connections.take(2).toList(growable: false),
+                          totalCount: _connections.length,
+                          isLoading: _isLoadingConnections,
+                          error: _connectionsError,
+                          onRetry: _loadConnections,
+                          onConnect: _connectPeople,
+                          actionLabel: profile.role == 'parent'
+                              ? 'Connect with a student'
+                              : 'Manage people',
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      _PrivacyCard(key: _privacyKey),
+                      if (isStudent) ...[
+                        const SizedBox(height: 18),
+                        KeyedSubtree(
+                          key: _journalKey,
+                          child: _buildJournalHistory(),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF7F4),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              color: Color(0xFF168D78),
+                            ),
+                            SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                'You choose who can read your reflections. Connected students can see full notes only after you accept their request.',
+                                style: TextStyle(
+                                  color: Color(0xFF456B65),
+                                  fontSize: 11,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout_rounded),
+                        label: const Text('Log out'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFE34D5B),
+                          side: const BorderSide(color: Color(0xFFF2C6CB)),
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -835,7 +961,200 @@ class _ProfilePageState extends State<ProfilePage> {
                 }
               },
             )
+          : profile.role == 'teacher'
+          ? AppBottomNav(
+              selectedIndex: 4,
+              forTeacher: true,
+              onDestinationSelected: (index) async {
+                if (index == 1) {
+                  await Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => MyStudentsPage(result: widget.result),
+                    ),
+                  );
+                  if (mounted) {
+                    await Future.wait([
+                      _loadConnections(),
+                      _loadTeacherWorkspace(),
+                    ]);
+                  }
+                } else if (index == 3) {
+                  await TeacherMessagesPage.open(context, widget.result);
+                  if (mounted) await _loadTeacherWorkspace();
+                } else if (index != 4) {
+                  Navigator.of(context).maybePop();
+                }
+              },
+            )
           : null,
+    );
+  }
+
+  Widget _buildTeacherWorkspace(
+    UserProfileData profile,
+    List<(String, String?)> workDetails,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: 14),
+      _TeacherWorkSummary(
+        studentCount: _connections.length,
+        feedbackCount: _teacherActivity?.totalFeedbackEntries ?? 0,
+        communicationCount: _teacherCommunications.length,
+        loading: _loadingTeacherWorkspace || _isLoadingConnections,
+      ),
+      const SizedBox(height: 11),
+      TeacherFeedbackShortcutCard(
+        entryCount: _teacherActivity?.totalFeedbackEntries ?? 0,
+        onTap: _openTeacherFeedbackHistory,
+      ),
+      const SizedBox(height: 16),
+      _TeacherSectionHeading(
+        title: 'Student suggestions',
+        subtitle: 'Students from your school you may connect with',
+        actionLabel: 'More',
+        onAction: _openTeacherStudentFinder,
+      ),
+      const SizedBox(height: 9),
+      if (_teacherWorkspaceError != null && _suggestedStudents.isEmpty)
+        _TeacherInlineError(
+          message: _teacherWorkspaceError!,
+          onRetry: _loadTeacherWorkspace,
+        )
+      else if (_loadingTeacherWorkspace && _suggestedStudents.isEmpty)
+        const _TeacherLoadingCard(label: 'Finding student suggestions...')
+      else if (_suggestedStudents.isEmpty)
+        _TeacherEmptyCard(
+          icon: Icons.groups_outlined,
+          message: profile.schoolName?.isNotEmpty == true
+              ? 'No new student suggestions right now.'
+              : 'Add your school in Work information to see student suggestions.',
+          action: profile.schoolName?.isNotEmpty == true
+              ? null
+              : TextButton(
+                  onPressed: _editProfile,
+                  child: const Text('Update work information'),
+                ),
+        )
+      else
+        ..._suggestedStudents
+            .take(3)
+            .map(
+              (student) => _TeacherSuggestionRow(
+                student: student,
+                onConnect: () => _requestSuggestedStudent(student),
+              ),
+            ),
+      const SizedBox(height: 17),
+      _TeacherSectionHeading(
+        title: 'Recent communication',
+        subtitle: 'Your confirmed messages and calls',
+        actionLabel: _teacherCommunications.length > 6 ? 'View all' : 'Refresh',
+        onAction: _teacherCommunications.length > 6
+            ? _showAllCommunications
+            : _loadTeacherWorkspace,
+      ),
+      const SizedBox(height: 9),
+      _TeacherCommunicationHistory(
+        entries: _teacherCommunications.take(6).toList(growable: false),
+        loading: _loadingTeacherWorkspace,
+      ),
+      const SizedBox(height: 16),
+      _ProfileInfoCard(
+        key: _accountDetailsKey,
+        title: 'Account details',
+        icon: Icons.verified_user_outlined,
+        rows: [
+          ('Email address', profile.email),
+          ('Mobile number', profile.mobileNumber),
+          ('Teacher ID', profile.teacherId ?? widget.result.teacherId),
+          (
+            'Member since',
+            profile.createdAt == null ? null : _displayDate(profile.createdAt!),
+          ),
+        ],
+        onEdit: _editProfile,
+      ),
+      const SizedBox(height: 12),
+      _ProfileInfoCard(
+        key: _schoolDetailsKey,
+        title: 'Work information',
+        icon: Icons.work_outline_rounded,
+        rows: workDetails,
+        onEdit: _editProfile,
+      ),
+      const SizedBox(height: 12),
+      _ConnectedPeopleCard(
+        key: _connectionsKey,
+        people: _connections.take(2).toList(growable: false),
+        totalCount: _connections.length,
+        isLoading: _isLoadingConnections,
+        error: _connectionsError,
+        onRetry: _loadConnections,
+        onConnect: _openTeacherStudentFinder,
+        actionLabel: 'Manage students',
+      ),
+      const SizedBox(height: 12),
+      _PrivacyCard(key: _privacyKey),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: _logout,
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Log out'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFE34D5B),
+          side: const BorderSide(color: Color(0xFFF2C6CB)),
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Future<void> _showAllCommunications() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .78,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Communication history',
+                    style: TextStyle(
+                      color: Color(0xFF203454),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _teacherCommunications.length,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  separatorBuilder: (_, _) => const SizedBox(height: 7),
+                  itemBuilder: (_, index) => Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    child: _TeacherCommunicationRow(
+                      entry: _teacherCommunications[index],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -3149,6 +3468,413 @@ class _ProfileMetric extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _TeacherWorkSummary extends StatelessWidget {
+  const _TeacherWorkSummary({
+    required this.studentCount,
+    required this.feedbackCount,
+    required this.communicationCount,
+    required this.loading,
+  });
+
+  final int studentCount;
+  final int feedbackCount;
+  final int communicationCount;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE5ECF2)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Your work at a glance',
+          style: TextStyle(
+            color: Color(0xFF203454),
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _ProfileMetric(
+                icon: Icons.groups_rounded,
+                label: 'Connected students',
+                value: loading && studentCount == 0 ? '—' : '$studentCount',
+                color: const Color(0xFF149B78),
+                background: const Color(0xFFE7F7F2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ProfileMetric(
+                icon: Icons.favorite_border_rounded,
+                label: 'Growth check-ins',
+                value: loading && feedbackCount == 0 ? '—' : '$feedbackCount',
+                color: const Color(0xFF287ACB),
+                background: const Color(0xFFEAF3FF),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ProfileMetric(
+                icon: Icons.forum_outlined,
+                label: 'Contacts logged',
+                value: loading && communicationCount == 0
+                    ? '—'
+                    : '$communicationCount',
+                color: const Color(0xFF8265B2),
+                background: const Color(0xFFF1EDFA),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _TeacherSectionHeading extends StatelessWidget {
+  const _TeacherSectionHeading({
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF203454),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(color: Color(0xFF78859B), fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+      TextButton(onPressed: onAction, child: Text(actionLabel)),
+    ],
+  );
+}
+
+class _TeacherSuggestionRow extends StatelessWidget {
+  const _TeacherSuggestionRow({required this.student, required this.onConnect});
+
+  final GrowthConnectionData student;
+  final VoidCallback onConnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final className = [
+      student.className,
+      if (student.section?.isNotEmpty == true) student.section,
+    ].whereType<String>().where((value) => value.isNotEmpty).join(' · ');
+    final canConnect = student.status == 'suggested';
+    final statusLabel = switch (student.status) {
+      'request_sent' => 'Request sent',
+      'request_received' => 'Request received',
+      'unavailable' => 'Not available',
+      _ => 'Suggested',
+    };
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(17),
+        side: const BorderSide(color: Color(0xFFE7EDF3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0xFFE7F7F2),
+              child: Text(
+                student.fullName.isEmpty
+                    ? '?'
+                    : student.fullName[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF149B78),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF203454),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      if (className.isNotEmpty) className,
+                      statusLabel,
+                    ].join(' · '),
+                    style: const TextStyle(
+                      color: Color(0xFF78859B),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 5),
+            if (canConnect)
+              OutlinedButton(
+                onPressed: onConnect,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF117A61),
+                  side: const BorderSide(color: Color(0xFFBFE7D9)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: const Text('Connect', style: TextStyle(fontSize: 11)),
+              )
+            else
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF9AA7B8)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TeacherCommunicationHistory extends StatelessWidget {
+  const _TeacherCommunicationHistory({
+    required this.entries,
+    required this.loading,
+  });
+
+  final List<TeacherCommunicationData> entries;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading && entries.isEmpty) {
+      return const _TeacherLoadingCard(
+        label: 'Loading communication history...',
+      );
+    }
+    if (entries.isEmpty) {
+      return const _TeacherEmptyCard(
+        icon: Icons.chat_bubble_outline_rounded,
+        message: 'Confirmed messages and calls will appear here.',
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7EDF3)),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < entries.length; index++) ...[
+            _TeacherCommunicationRow(entry: entries[index]),
+            if (index != entries.length - 1)
+              const Divider(height: 1, indent: 54, endIndent: 14),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TeacherCommunicationRow extends StatelessWidget {
+  const _TeacherCommunicationRow({required this.entry});
+
+  final TeacherCommunicationData entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCall = entry.channel == 'call';
+    final date = entry.createdAt?.toLocal();
+    final when = date == null
+        ? 'Date unavailable'
+        : '${date.day}/${date.month}/${date.year} · ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final className = [
+      entry.className,
+      if (entry.section?.isNotEmpty == true) entry.section,
+    ].whereType<String>().where((value) => value.isNotEmpty).join('-');
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: entry.completed
+                ? const Color(0xFFE7F7F2)
+                : const Color(0xFFFFF2E0),
+            child: Icon(
+              isCall ? Icons.call_outlined : Icons.chat_outlined,
+              size: 17,
+              color: entry.completed
+                  ? const Color(0xFF149B78)
+                  : const Color(0xFFB66A12),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.studentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF203454),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${isCall ? 'Call' : 'WhatsApp message'} · ${entry.completed ? 'Completed' : 'Not completed'}${className.isEmpty ? '' : ' · $className'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF68768C),
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  when,
+                  style: const TextStyle(color: Color(0xFF96A1B0), fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeacherLoadingCard extends StatelessWidget {
+  const _TeacherLoadingCard({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE7EDF3)),
+    ),
+    child: Row(
+      children: [
+        const SizedBox(
+          width: 17,
+          height: 17,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF149B78),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFF68768C), fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TeacherEmptyCard extends StatelessWidget {
+  const _TeacherEmptyCard({
+    required this.icon,
+    required this.message,
+    this.action,
+  });
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE7EDF3)),
+    ),
+    child: Column(
+      children: [
+        Icon(icon, color: const Color(0xFF149B78), size: 24),
+        const SizedBox(height: 7),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Color(0xFF68768C), fontSize: 11),
+        ),
+        ?action,
+      ],
+    ),
+  );
+}
+
+class _TeacherInlineError extends StatelessWidget {
+  const _TeacherInlineError({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => _TeacherEmptyCard(
+    icon: Icons.cloud_off_outlined,
+    message: message,
+    action: TextButton.icon(
+      onPressed: onRetry,
+      icon: const Icon(Icons.refresh_rounded),
+      label: const Text('Try again'),
     ),
   );
 }

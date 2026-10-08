@@ -7,6 +7,7 @@ import '../../../authentication/presentation/pages/login_page.dart';
 import '../../../dashboard/presentation/pages/profile_page.dart';
 import 'create_goal_page.dart';
 import 'goal_detail_page.dart';
+import 'teacher_messages_page.dart';
 
 class GoalsProgressPage extends StatefulWidget {
   const GoalsProgressPage({
@@ -130,7 +131,7 @@ class _GoalsProgressPageState extends State<GoalsProgressPage> {
         _showUnavailable('Insights');
         break;
       case 3:
-        _showUnavailable('Messages');
+        TeacherMessagesPage.open(context, widget.result);
         break;
       case 4:
         Navigator.of(context).push<void>(
