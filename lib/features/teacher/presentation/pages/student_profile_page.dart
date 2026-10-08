@@ -8,6 +8,7 @@ import '../../../dashboard/presentation/pages/profile_page.dart';
 import 'student_reflections_page.dart';
 import 'goals_progress_page.dart';
 import '../services/teacher_student_contact.dart';
+import 'teacher_messages_page.dart';
 
 class TeacherStudentProgressPage extends StatefulWidget {
   const TeacherStudentProgressPage({
@@ -329,7 +330,7 @@ class _TeacherStudentProgressPageState
         _showUnavailable('Insights');
         break;
       case 3:
-        _showUnavailable('Messages');
+        TeacherMessagesPage.open(context, widget.result);
         break;
       case 4:
         Navigator.of(context).push<void>(

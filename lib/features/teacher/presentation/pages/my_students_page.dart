@@ -5,8 +5,9 @@ import '../../../authentication/data/auth_api.dart';
 import '../../../authentication/data/auth_session.dart';
 import '../../../authentication/presentation/pages/login_page.dart';
 import '../../../dashboard/presentation/pages/profile_page.dart';
-import '../services/teacher_student_contact.dart';
+import 'teacher_messages_page.dart';
 import 'student_profile_page.dart';
+import '../widgets/teacher_student_compact_row.dart';
 
 enum _StudentFilter { all, needsAttention, goodProgress }
 
@@ -151,12 +152,6 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
     );
   }
 
-  Future<void> _messageStudent(GrowthConnectionData student) =>
-      TeacherStudentContact.message(context: context, result: widget.result, student: student);
-
-  Future<void> _callStudent(GrowthConnectionData student) =>
-      TeacherStudentContact.call(context: context, result: widget.result, student: student);
-
   Future<void> _openConnectStudents() async {
     final token = _token;
     if (token == null) return;
@@ -175,16 +170,14 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
       case 1:
         break;
       case 2:
-      case 3:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              index == 2
-                  ? 'Insights are available from the Teacher dashboard.'
-                  : 'Teacher messages are not available yet.',
-            ),
+          const SnackBar(
+            content: Text('Insights are available from the Teacher dashboard.'),
           ),
         );
+        break;
+      case 3:
+        TeacherMessagesPage.open(context, widget.result);
         break;
       case 4:
         Navigator.of(context).push<void>(
@@ -295,12 +288,10 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
                       const _NoSearchResults()
                     else
                       for (final student in students)
-                        _StudentListCard(
+                        TeacherStudentCompactRow(
                           student: student,
                           overview: _studentOverview(student),
                           onTap: () => _openStudent(student),
-                          onMessage: () => _messageStudent(student),
-                          onCall: () => _callStudent(student),
                         ),
                   ],
                 ),
@@ -368,161 +359,6 @@ class _StudentFilters extends StatelessWidget {
     );
   }
 }
-
-class _StudentListCard extends StatelessWidget {
-  const _StudentListCard({
-    required this.student,
-    required this.overview,
-    required this.onTap,
-    required this.onMessage,
-    required this.onCall,
-  });
-
-  final GrowthConnectionData student;
-  final TeacherStudentOverviewData? overview;
-  final VoidCallback onTap;
-  final VoidCallback onMessage;
-  final VoidCallback onCall;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = _statusStyle(overview?.latestProgress);
-    final classLabel = [
-      student.className,
-      if (student.section?.isNotEmpty == true) student.section,
-    ].whereType<String>().where((part) => part.isNotEmpty).join('-');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFE7EDF3)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 23,
-                backgroundColor: const Color(0xFFE6F7F2),
-                child: Text(
-                  student.fullName.trim().isEmpty
-                      ? '?'
-                      : student.fullName.trim()[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF149B78),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF203454),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      [
-                        if (classLabel.isNotEmpty) classLabel,
-                        if (student.accountId?.isNotEmpty == true)
-                          'ID ${student.accountId}',
-                      ].join('  ·  '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF78859B),
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status.background,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        status.label,
-                        style: TextStyle(
-                          color: status.foreground,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Message ${student.fullName}',
-                    onPressed: onMessage,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    icon: const Icon(Icons.sms_outlined, color: Color(0xFF149B78), size: 20),
-                  ),
-                  IconButton(
-                    tooltip: 'Call ${student.fullName}',
-                    onPressed: onCall,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    icon: const Icon(Icons.call_outlined, color: Color(0xFF287ACB), size: 20),
-                  ),
-                ],
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF8B98AA)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-({String label, Color foreground, Color background}) _statusStyle(
-  String? progress,
-) => switch (progress) {
-  'harder' => (
-    label: 'Needs Attention',
-    foreground: const Color(0xFFB34F51),
-    background: const Color(0xFFFFEDEE),
-  ),
-  'improving' => (
-    label: 'Good Progress',
-    foreground: const Color(0xFF168064),
-    background: const Color(0xFFE6F7F1),
-  ),
-  'steady' => (
-    label: 'Stable',
-    foreground: const Color(0xFF3477A9),
-    background: const Color(0xFFEAF3FF),
-  ),
-  _ => (
-    label: 'No recent updates',
-    foreground: const Color(0xFF79649C),
-    background: const Color(0xFFF1EDFA),
-  ),
-};
 
 class _LoadingStudents extends StatelessWidget {
   const _LoadingStudents();

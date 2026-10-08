@@ -280,6 +280,40 @@ class TeacherActivityData {
       );
 }
 
+class TeacherCommunicationData {
+  const TeacherCommunicationData({
+    required this.id,
+    required this.studentId,
+    required this.studentName,
+    required this.channel,
+    required this.completed,
+    required this.createdAt,
+    this.className,
+    this.section,
+  });
+
+  final String id;
+  final String? studentId;
+  final String studentName;
+  final String channel;
+  final bool completed;
+  final DateTime? createdAt;
+  final String? className;
+  final String? section;
+
+  factory TeacherCommunicationData.fromJson(Map<String, dynamic> json) =>
+      TeacherCommunicationData(
+        id: json['id'] as String? ?? '',
+        studentId: json['studentId'] as String?,
+        studentName: json['studentName'] as String? ?? 'Student',
+        channel: json['channel'] as String? ?? 'message',
+        completed: json['completed'] as bool? ?? false,
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+        className: json['className'] as String?,
+        section: json['section'] as String?,
+      );
+}
+
 class TeacherFeedbackActivityData {
   const TeacherFeedbackActivityData({
     required this.studentId,
@@ -1445,6 +1479,59 @@ class AuthApi {
       throw const AuthApiException(
         'The server returned invalid reflection data.',
       );
+    }
+  }
+
+  static Future<List<TeacherCommunicationData>> getTeacherCommunications(
+    String token,
+  ) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/communications',
+      fallbackMessage: 'Communication history could not be loaded.',
+    );
+    return (data['communications'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(TeacherCommunicationData.fromJson)
+        .toList(growable: false);
+  }
+
+  static Future<void> createTeacherCommunication({
+    required String token,
+    required String studentId,
+    required String channel,
+    required bool completed,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              '$_baseUrl/auth/teacher/students/${Uri.encodeComponent(studentId)}/communications',
+            ),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'channel': channel, 'completed': completed}),
+          )
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Communication history could not be saved.',
+          statusCode: response.statusCode,
+        );
+      }
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to save communication history.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to save communication history.');
+    } on TimeoutException {
+      throw const AuthApiException('Saving communication history timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned an invalid response.');
     }
   }
 
