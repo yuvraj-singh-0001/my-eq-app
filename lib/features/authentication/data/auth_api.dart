@@ -256,6 +256,14 @@ class JournalNoteData {
   }
 }
 
+class TeacherStudentContactData {
+  const TeacherStudentContactData({this.mobileNumber});
+  final String? mobileNumber;
+
+  factory TeacherStudentContactData.fromJson(Map<String, dynamic> json) =>
+      TeacherStudentContactData(mobileNumber: json['mobileNumber'] as String?);
+}
+
 class TeacherActivityData {
   const TeacherActivityData({
     required this.totalFeedbackEntries,
@@ -1438,6 +1446,18 @@ class AuthApi {
         'The server returned invalid reflection data.',
       );
     }
+  }
+
+  static Future<TeacherStudentContactData> getTeacherStudentContact({
+    required String token,
+    required String studentId,
+  }) async {
+    final data = await _getGrowthData(
+      token: token,
+      path: 'teacher/students/${Uri.encodeComponent(studentId)}/contact',
+      fallbackMessage: 'Student contact details could not be loaded.',
+    );
+    return TeacherStudentContactData.fromJson(data);
   }
 
   static Future<StudentReflectionOverviewData>

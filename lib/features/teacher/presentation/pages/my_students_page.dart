@@ -5,6 +5,7 @@ import '../../../authentication/data/auth_api.dart';
 import '../../../authentication/data/auth_session.dart';
 import '../../../authentication/presentation/pages/login_page.dart';
 import '../../../dashboard/presentation/pages/profile_page.dart';
+import '../services/teacher_student_contact.dart';
 import 'student_profile_page.dart';
 
 enum _StudentFilter { all, needsAttention, goodProgress }
@@ -150,6 +151,12 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
     );
   }
 
+  Future<void> _messageStudent(GrowthConnectionData student) =>
+      TeacherStudentContact.message(context: context, result: widget.result, student: student);
+
+  Future<void> _callStudent(GrowthConnectionData student) =>
+      TeacherStudentContact.call(context: context, result: widget.result, student: student);
+
   Future<void> _openConnectStudents() async {
     final token = _token;
     if (token == null) return;
@@ -292,6 +299,8 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
                           student: student,
                           overview: _studentOverview(student),
                           onTap: () => _openStudent(student),
+                          onMessage: () => _messageStudent(student),
+                          onCall: () => _callStudent(student),
                         ),
                   ],
                 ),
@@ -365,11 +374,15 @@ class _StudentListCard extends StatelessWidget {
     required this.student,
     required this.overview,
     required this.onTap,
+    required this.onMessage,
+    required this.onCall,
   });
 
   final GrowthConnectionData student;
   final TeacherStudentOverviewData? overview;
   final VoidCallback onTap;
+  final VoidCallback onMessage;
+  final VoidCallback onCall;
 
   @override
   Widget build(BuildContext context) {
@@ -457,6 +470,25 @@ class _StudentListCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Message ${student.fullName}',
+                    onPressed: onMessage,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    icon: const Icon(Icons.sms_outlined, color: Color(0xFF149B78), size: 20),
+                  ),
+                  IconButton(
+                    tooltip: 'Call ${student.fullName}',
+                    onPressed: onCall,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    icon: const Icon(Icons.call_outlined, color: Color(0xFF287ACB), size: 20),
+                  ),
+                ],
               ),
               const Icon(Icons.chevron_right_rounded, color: Color(0xFF8B98AA)),
             ],

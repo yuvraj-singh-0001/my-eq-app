@@ -33,6 +33,15 @@ export async function getStudentGrowthSummary(request, response) {
   });
 }
 
+export async function getAssignedStudentContact(request, response) {
+  requireTeacher(request);
+  const student = await findAssignedStudent(request, request.params.studentId);
+  return response.json({
+    success: true,
+    data: { studentId: student.studentId, mobileNumber: student.mobileNumber ?? null },
+  });
+}
+
 export async function getOwnActivitySummary(request, response) {
   requireTeacher(request);
   const teacher = await User.findById(request.auth.sub);

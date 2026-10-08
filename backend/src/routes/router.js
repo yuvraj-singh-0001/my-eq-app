@@ -41,6 +41,7 @@ import {
   getOwnActivitySummary,
   getOwnClassOverview,
   getOwnConnections as getTeacherConnections,
+  getAssignedStudentContact,
   getStudentGrowthSummary as getTeacherStudentGrowthSummary,
   submitStudentGrowthFeedback as submitTeacherGrowthFeedback,
 } from '../controllers/teacher/growth.controller.js';
@@ -77,6 +78,7 @@ router.post('/parent/students/:studentId/growth-feedback', authenticate, submitP
 router.get('/parent/students/:studentId/growth-summary', authenticate, getParentStudentGrowthSummary);
 router.post('/teacher/students/:studentId/growth-feedback', authenticate, submitTeacherGrowthFeedback);
 router.get('/teacher/students/:studentId/growth-summary', authenticate, getTeacherStudentGrowthSummary);
+router.get('/teacher/students/:studentId/contact', authenticate, getAssignedStudentContact);
 router.get('/teacher/students/:studentId/reflections', authenticate, listAssignedStudentJournalNotes);
 router.get('/teacher/students/:studentId/reflection-overview', authenticate, getAssignedStudentReflectionOverview);
 router.get('/teacher/students/:studentId/goals', authenticate, listGoals);

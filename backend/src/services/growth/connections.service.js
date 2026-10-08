@@ -30,24 +30,33 @@ function escapedRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function loadStatusMap(user) {
-  const [requests, peers, assignedStudents] = await Promise.all([
-    GrowthConnectionRequest.find({
-      status: 'pending',
-      $or: [{ requester: user._id }, { recipient: user._id }],
-    }).lean(),
-    User.findById(user._id).select('linkedPeers assignedTeacher linkedParents').lean(),
-    user.role === 'teacher'
-      ? User.find({ assignedTeacher: user._id, role: 'student' }).select('_id').lean()
+async function loadStatusMap(user, people) {
+  const personIds = people.map((person) => person._id);
+  const [requests, peers] = await Promise.all([
+    personIds.length > 0
+      ? GrowthConnectionRequest.find({
+        status: 'pending',
+        $or: [
+          { requester: user._id, recipient: { $in: personIds } },
+          { recipient: user._id, requester: { $in: personIds } },
+        ],
+      }).lean()
       : Promise.resolve([]),
+    User.findById(user._id).select('linkedPeers assignedTeacher linkedParents').lean(),
   ]);
   const status = new Map();
   const connectedIds = new Set([
     ...(peers?.linkedPeers ?? []).map(String),
     ...(peers?.linkedParents ?? []).map(String),
     ...(peers?.assignedTeacher ? [String(peers.assignedTeacher)] : []),
-    ...assignedStudents.map((student) => String(student._id)),
   ]);
+  if (user.role === 'teacher') {
+    for (const person of people) {
+      if (String(person.assignedTeacher ?? '') === String(user._id)) {
+        connectedIds.add(String(person._id));
+      }
+    }
+  }
   for (const id of connectedIds) status.set(id, 'connected');
   for (const request of requests) {
     const otherId = String(request.requester) === String(user._id)
@@ -67,21 +76,21 @@ export async function findPeople(request, response) {
   if (!user) throw createHttpError(404, 'Your account was not found.');
 
   const search = typeof request.query.search === 'string' ? request.query.search.trim() : '';
-  const status = await loadStatusMap(user);
   const baseFilter = {
     _id: { $ne: user._id },
     role: user.role === 'teacher' ? 'student' : { $in: ['student', 'teacher'] },
   };
   let filter;
   if (search) {
-    const exact = search.toUpperCase();
-    const searchPattern = new RegExp(escapedRegex(search), 'i');
+    // Exact normalized values let MongoDB use the existing unique identity indexes.
+    const username = search.toLowerCase();
+    const accountId = search.toUpperCase();
     filter = {
       ...baseFilter,
       $or: [
-        { username: searchPattern },
-        { studentId: exact },
-        { teacherId: exact },
+        { username },
+        { studentId: accountId },
+        ...(user.role === 'student' ? [{ teacherId: accountId }] : []),
       ],
     };
   } else if (user.schoolName?.trim()) {
@@ -101,6 +110,7 @@ export async function findPeople(request, response) {
     .sort({ fullName: 1 })
     .limit(search ? 20 : 12)
     .lean();
+  const status = await loadStatusMap(user, people);
   return response.json({
     success: true,
     data: {

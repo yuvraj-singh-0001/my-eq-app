@@ -7,6 +7,7 @@ import '../../../authentication/presentation/pages/login_page.dart';
 import '../../../dashboard/presentation/pages/profile_page.dart';
 import 'student_reflections_page.dart';
 import 'goals_progress_page.dart';
+import '../services/teacher_student_contact.dart';
 
 class TeacherStudentProgressPage extends StatefulWidget {
   const TeacherStudentProgressPage({
@@ -284,6 +285,18 @@ class _TeacherStudentProgressPageState
     ).showSnackBar(SnackBar(content: Text('$feature is not available yet.')));
   }
 
+  Future<void> _messageStudent() => TeacherStudentContact.message(
+    context: context,
+    result: widget.result,
+    student: widget.student,
+  );
+
+  Future<void> _callStudent() => TeacherStudentContact.call(
+    context: context,
+    result: widget.result,
+    student: widget.student,
+  );
+
   void _openReflections() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -393,7 +406,7 @@ class _TeacherStudentProgressPageState
           tooltip: 'More student actions',
           onSelected: (action) {
             if (action == 'feedback') _feedback();
-            if (action == 'call') _showUnavailable('Calling');
+            if (action == 'call') _callStudent();
           },
           itemBuilder: (_) => const [
             PopupMenuItem(
@@ -449,8 +462,8 @@ class _TeacherStudentProgressPageState
         mainAxisSize: MainAxisSize.min,
         children: [
           _StudentContactActions(
-            onMessage: () => _showUnavailable('Student messaging'),
-            onCall: () => _showUnavailable('Calling'),
+            onMessage: _messageStudent,
+            onCall: _callStudent,
           ),
           AppBottomNav(
             selectedIndex: 1,
