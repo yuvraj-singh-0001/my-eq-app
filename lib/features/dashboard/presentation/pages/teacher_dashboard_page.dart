@@ -7,6 +7,7 @@ import '../../../teacher/presentation/pages/student_profile_page.dart';
 import '../../../teacher/presentation/pages/teacher_feedback_history_page.dart';
 import '../../../teacher/presentation/pages/teacher_requests_review_page.dart';
 import '../../../teacher/presentation/pages/teacher_messages_page.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 import 'profile_page.dart';
 
 class TeacherDashboardPage extends StatefulWidget {
@@ -254,6 +255,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
+          NotificationBell(result: widget.result),
           IconButton(
             tooltip: 'Refresh dashboard',
             onPressed: () => _load(refresh: true),

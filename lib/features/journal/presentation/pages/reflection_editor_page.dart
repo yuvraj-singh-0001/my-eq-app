@@ -31,6 +31,7 @@ class ReflectionEditorPage extends StatefulWidget {
 class _ReflectionEditorPageState extends State<ReflectionEditorPage> {
   late final TextEditingController _controller;
   bool _isSaving = false;
+  bool _shareWithParents = false;
 
   @override
   void initState() {
@@ -57,6 +58,7 @@ class _ReflectionEditorPageState extends State<ReflectionEditorPage> {
         responses: widget.responses,
         customText: widget.customText,
         sections: widget.sections,
+        sharedWithParents: _shareWithParents,
       );
       if (mounted) Navigator.of(context).pop(note);
     } on AuthApiException catch (error) {
@@ -218,15 +220,17 @@ class _ReflectionEditorPageState extends State<ReflectionEditorPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.lock_outline_rounded,
+                    Icon(
+                      _shareWithParents
+                          ? Icons.people_alt_outlined
+                          : Icons.lock_outline_rounded,
                       color: Color(0xFF148F73),
                       size: 18,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${widget.category}  ·  Private',
+                        '${widget.category}  ·  ${_shareWithParents ? 'Shared with parent' : 'Private'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -265,6 +269,39 @@ class _ReflectionEditorPageState extends State<ReflectionEditorPage> {
                   ],
                 ),
               ],
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE1E8EF)),
+                ),
+                child: SwitchListTile.adaptive(
+                  value: _shareWithParents,
+                  onChanged: (value) =>
+                      setState(() => _shareWithParents = value),
+                  activeTrackColor: const Color(0xFF18A77F),
+                  title: const Text(
+                    'Share with connected parent',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF203454),
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Private by default. You can choose to share this note.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7890)),
+                  ),
+                  secondary: Icon(
+                    _shareWithParents
+                        ? Icons.people_alt_outlined
+                        : Icons.lock_outline_rounded,
+                    color: const Color(0xFF148F73),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+              ),
               const SizedBox(height: 14),
               Expanded(
                 child: widget.sections.isEmpty

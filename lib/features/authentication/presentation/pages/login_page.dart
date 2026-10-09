@@ -138,10 +138,33 @@ class _LoginPageState extends State<LoginPage> {
                           right: 0,
                           bottom: -46,
                           width: isCompact ? 260 : 300,
-                          child: Image.asset(
-                            'lib/assets/images/login-image.png',
-                            cacheWidth: 700,
-                            fit: BoxFit.contain,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(
+                                      begin: .97,
+                                      end: 1,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                ),
+                            child: Image.asset(
+                              key: ValueKey(
+                                _selectedRole == 1
+                                    ? 'teacher-login-art'
+                                    : 'student-login-art',
+                              ),
+                              _selectedRole == 1
+                                  ? 'lib/assets/images/teachers-singup.png'
+                                  : 'lib/assets/images/login-image.png',
+                              cacheWidth: 700,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -344,13 +367,13 @@ class _LoginFormPanel extends StatelessWidget {
         ? 'Teacher ID, Username, Email, or Mobile'
         : (selectedRole == 0
               ? 'Student ID, Username, Email, or Mobile'
-              : 'Mobile Number or Email');
+              : 'Parent ID, Username, Email, or Mobile');
 
     final hintText = selectedRole == 1
         ? 'Enter Teacher ID, email, or mobile'
         : (selectedRole == 0
               ? 'Enter Student ID, email, or mobile'
-              : 'Enter mobile number or email');
+              : 'Enter Parent ID, email, or mobile');
 
     final prefixIcon = selectedRole == 1
         ? Icons.badge_outlined
@@ -536,17 +559,12 @@ class _LoginFormPanel extends StatelessWidget {
               height: 50,
               child: TextButton(
                 onPressed: () {
-                  if (selectedRole == 2) {
-                    showTopErrorNotification(
-                      context,
-                      'Parent accounts are provided by your school. Please contact your school administrator.',
-                    );
-                    return;
-                  }
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => SignupPage(
-                        initialRole: selectedRole == 1 ? 'teacher' : 'student',
+                        initialRole: selectedRole == 1
+                            ? 'teacher'
+                            : (selectedRole == 2 ? 'parent' : 'student'),
                       ),
                     ),
                   );
@@ -798,7 +816,7 @@ class _LoginSuccessDialog extends StatelessWidget {
     final roleLabel = isTeacher
         ? 'Teacher'
         : (result.role == 'parent' ? 'Parent' : 'Student');
-    final accountId = result.teacherId ?? result.studentId;
+    final accountId = result.teacherId ?? result.parentId ?? result.studentId;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -895,7 +913,7 @@ class _LoginSuccessDialog extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '${isTeacher ? "Teacher ID" : "Student ID"}: ',
+                      '${isTeacher ? "Teacher ID" : (result.role == 'parent' ? "Parent ID" : "Student ID")}: ',
                       style: const TextStyle(
                         color: Color(0xFF657189),
                         fontSize: 12,

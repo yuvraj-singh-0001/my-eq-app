@@ -9,6 +9,7 @@ import 'journal_reflection_content.dart';
 import 'self_regulation_content.dart';
 import 'self_regulation_topics_page.dart';
 import 'journal_note_detail_page.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key, required this.result});
@@ -508,11 +509,7 @@ class _JournalPageState extends State<JournalPage> {
           onTap: () => _showSearch(context),
         ),
         const SizedBox(width: 8),
-        _RoundAction(
-          icon: Icons.notifications_none_rounded,
-          label: 'Notifications',
-          onTap: () {},
-        ),
+        NotificationBell(result: widget.result),
       ],
     );
   }
@@ -1073,119 +1070,125 @@ class _NoteCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-      onTap: onTap,
-      child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Color(0x080B2B4B), blurRadius: 12, offset: Offset(0, 3))],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 54,
-            height: 58,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${indiaDate.day}',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  _month(indiaDate.month),
-                  style: TextStyle(color: color, fontSize: 11),
-                ),
-              ],
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x080B2B4B),
+                blurRadius: 12,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 54,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      category?.icon ?? Icons.edit_note_rounded,
-                      color: color,
-                      size: 19,
+                    Text(
+                      '${indiaDate.day}',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        note.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF203454),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                    Text(
+                      _month(indiaDate.month),
+                      style: TextStyle(color: color, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          category?.icon ?? Icons.edit_note_rounded,
+                          color: color,
+                          size: 19,
                         ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            note.category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF203454),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    if (note.sections.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: [
+                          for (final title
+                              in note.sections
+                                  .map(
+                                    (section) =>
+                                        section['subcategory'] as String? ?? '',
+                                  )
+                                  .where((title) => title.isNotEmpty))
+                            Container(
+                              constraints: const BoxConstraints(maxWidth: 190),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: background,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(
+                      '$date  ·  $time IST',
+                      style: const TextStyle(
+                        color: Color(0xFF9AA4B5),
+                        fontSize: 10,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
-                if (note.sections.isNotEmpty) ...[
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 5,
-                    children: [
-                      for (final title
-                          in note.sections
-                              .map(
-                                (section) =>
-                                    section['subcategory'] as String? ?? '',
-                              )
-                              .where((title) => title.isNotEmpty))
-                        Container(
-                          constraints: const BoxConstraints(maxWidth: 190),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: background,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                ],
-                Text(
-                  '$date  ·  $time IST',
-                  style: const TextStyle(
-                    color: Color(0xFF9AA4B5),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }

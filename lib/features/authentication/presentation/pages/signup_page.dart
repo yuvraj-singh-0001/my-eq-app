@@ -5,6 +5,7 @@ import '../../../../core/widgets/top_notification.dart';
 import '../../data/auth_api.dart';
 import '../../data/auth_session.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../parent/presentation/pages/parent_dashboard_page.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
 
 class SignupPage extends StatefulWidget {
@@ -47,7 +48,9 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void initState() {
     super.initState();
-    _role = widget.initialRole == 'teacher' ? 'teacher' : 'student';
+    _role = ['teacher', 'parent'].contains(widget.initialRole)
+        ? widget.initialRole
+        : 'student';
     _loadAccountId();
   }
 
@@ -166,10 +169,11 @@ class _SignupPageState extends State<SignupPage> {
   Future<void> _openDashboard() async {
     await AuthSession.save(_loginResult());
     if (!mounted) return;
+    final destination = _role == 'parent'
+        ? ParentDashboardPage(result: _loginResult())
+        : DashboardPage(result: _loginResult());
     Navigator.of(context).pushReplacement<void, void>(
-      MaterialPageRoute<void>(
-        builder: (_) => DashboardPage(result: _loginResult()),
-      ),
+      MaterialPageRoute<void>(builder: (_) => destination),
     );
   }
 
@@ -185,7 +189,8 @@ class _SignupPageState extends State<SignupPage> {
     fullName: _fullNameController.text.trim(),
     role: _role,
     teacherId: _role == 'teacher' ? _studentId : null,
-    studentId: _role == 'teacher' ? null : _studentId,
+    parentId: _role == 'parent' ? _studentId : null,
+    studentId: _role == 'student' ? _studentId : null,
     email: _emailController.text.trim(),
     username: _usernameController.text.trim(),
     token: _authToken,
@@ -641,6 +646,8 @@ class _SignupFormPanel extends StatelessWidget {
           _SectionTitle(
             title: role == 'teacher'
                 ? (step == 0 ? 'Teacher Information' : 'Teacher Account')
+                : role == 'parent'
+                ? (step == 0 ? 'Parent Information' : 'Parent Account')
                 : (step == 0
                       ? 'Basic Information'
                       : 'Family & Account Details'),
@@ -653,7 +660,11 @@ class _SignupFormPanel extends StatelessWidget {
           const SizedBox(height: 14),
           _StudentIdField(
             studentId: studentId,
-            label: role == 'teacher' ? 'Teacher ID' : 'Student ID',
+            label: role == 'teacher'
+                ? 'Teacher ID'
+                : role == 'parent'
+                ? 'Parent ID'
+                : 'Student ID',
           ),
           const SizedBox(height: 14),
           if (step == 0)
@@ -725,6 +736,7 @@ class _SignupFormPanel extends StatelessWidget {
 
   List<Widget> _basicFields() {
     if (role == 'teacher') return _teacherBasicFields();
+    if (role == 'parent') return _parentBasicFields();
     return [
       _SignupInput(
         label: 'Full Name',
@@ -799,6 +811,41 @@ class _SignupFormPanel extends StatelessWidget {
       const SizedBox(height: 10),
     ];
   }
+
+  List<Widget> _parentBasicFields() => [
+    _SignupInput(
+      label: 'Full Name',
+      hint: 'Enter your full name',
+      controller: fullNameController,
+      icon: Icons.person_outline,
+      textCapitalization: TextCapitalization.words,
+      inputFormatters: const [_CapitalizeWordsFormatter()],
+      requiredField: true,
+      validator: _requiredValidator,
+    ),
+    const SizedBox(height: 12),
+    _SignupInput(
+      label: 'Gmail',
+      hint: 'Enter your Gmail address',
+      controller: emailController,
+      icon: Icons.mail_outline,
+      keyboardType: TextInputType.emailAddress,
+      requiredField: true,
+      validator: _emailValidator,
+    ),
+    const SizedBox(height: 12),
+    _SignupInput(
+      label: 'Mobile Number',
+      hint: 'Enter 10-digit mobile number',
+      controller: mobileController,
+      icon: Icons.phone_outlined,
+      prefixText: '+91 ',
+      keyboardType: TextInputType.phone,
+      maxLength: 10,
+      requiredField: true,
+      validator: _mobileValidator,
+    ),
+  ];
 
   List<Widget> _teacherBasicFields() {
     return [
@@ -914,6 +961,7 @@ class _SignupFormPanel extends StatelessWidget {
   }
 
   List<Widget> _accountFields() {
+    if (role == 'parent') return _parentAccountFields();
     return [
       const _FormGroupLabel('Father\'s Details'),
       _SignupInput(
@@ -1015,6 +1063,47 @@ class _SignupFormPanel extends StatelessWidget {
       _PasswordRequirements(controller: passwordController),
     ];
   }
+
+  List<Widget> _parentAccountFields() => [
+    const _FormGroupLabel('Your Account'),
+    _SignupInput(
+      label: 'Username',
+      hint: 'Create your username',
+      controller: usernameController,
+      icon: Icons.alternate_email,
+      requiredField: true,
+      errorText: usernameError,
+      onChanged: (_) {
+        if (usernameError != null) onUsernameErrorChanged();
+      },
+      validator: _usernameValidator,
+    ),
+    const SizedBox(height: 10),
+    _SignupInput(
+      label: 'Password',
+      hint: 'Create a strong password',
+      controller: passwordController,
+      icon: Icons.lock_outline,
+      obscureText: obscurePassword,
+      suffixIcon: IconButton(
+        onPressed: onPasswordVisibilityChanged,
+        icon: Icon(
+          obscurePassword
+              ? Icons.visibility_outlined
+              : Icons.visibility_off_outlined,
+        ),
+      ),
+      requiredField: true,
+      validator: _passwordValidator,
+    ),
+    const SizedBox(height: 8),
+    _PasswordRequirements(controller: passwordController),
+    const SizedBox(height: 10),
+    const Text(
+      'After creating your account, enter the invite code from your child to connect securely.',
+      style: TextStyle(color: Color(0xFF64748B), fontSize: 12, height: 1.4),
+    ),
+  ];
 
   String? _mobileValidator(String? value) {
     if (value == null || value.length != 10) {
@@ -1153,6 +1242,15 @@ class _SignupRoleSelector extends StatelessWidget {
             onPressed: () => onChanged('teacher'),
           ),
         ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SignupRoleButton(
+            label: 'Parent',
+            icon: Icons.family_restroom_outlined,
+            selected: role == 'parent',
+            onPressed: () => onChanged('parent'),
+          ),
+        ),
       ],
     );
   }
@@ -1280,8 +1378,11 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
   @override
   Widget build(BuildContext context) {
     final isTeacher = widget.role == 'teacher';
-    final roleTitle = isTeacher ? 'Teacher' : 'Student';
-    final idTitle = isTeacher ? 'TEACHER ID' : 'STUDENT ID';
+    final isParent = widget.role == 'parent';
+    final roleTitle = isTeacher ? 'Teacher' : (isParent ? 'Parent' : 'Student');
+    final idTitle = isTeacher
+        ? 'TEACHER ID'
+        : (isParent ? 'PARENT ID' : 'STUDENT ID');
     final themeColor = isTeacher
         ? const Color(0xFF0F8A6B)
         : const Color(0xFF149B78);
@@ -1350,7 +1451,11 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isTeacher ? Icons.groups_outlined : Icons.school_outlined,
+                    isTeacher
+                        ? Icons.groups_outlined
+                        : (isParent
+                              ? Icons.family_restroom_outlined
+                              : Icons.school_outlined),
                     size: 15,
                     color: themeColor,
                   ),
@@ -1381,7 +1486,7 @@ class _AccountCreatedDialogState extends State<_AccountCreatedDialog> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        isTeacher
+                        isTeacher || isParent
                             ? Icons.badge_outlined
                             : Icons.credit_card_outlined,
                         size: 16,
@@ -1798,9 +1903,13 @@ class _Step3Panel extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).height < 760;
     final firstTitle = role == 'teacher'
         ? 'View Your Students'
+        : role == 'parent'
+        ? 'Connect with Your Child'
         : 'Write Your First Reflection';
     final secondTitle = role == 'teacher'
         ? 'Connect with Parents'
+        : role == 'parent'
+        ? 'View Shared Reflections'
         : 'Connect with Teacher/Parent';
 
     return Container(
@@ -1838,6 +1947,8 @@ class _Step3Panel extends StatelessWidget {
             Text(
               role == 'teacher'
                   ? 'Your teacher account is ready. Choose a next step.'
+                  : role == 'parent'
+                  ? 'Your parent account is ready. Connect with your child to begin.'
                   : 'Choose a small step to get started.',
               style: const TextStyle(color: Color(0xFF627087), fontSize: 12),
             ),
@@ -1861,9 +1972,13 @@ class _Step3Panel extends StatelessWidget {
                     title: firstTitle,
                     subtitle: role == 'teacher'
                         ? 'See your connected class'
+                        : role == 'parent'
+                        ? 'Use a one-time code from the student account'
                         : 'Share how you feel today',
                     onTap: role == 'student'
                         ? onWriteReflection
+                        : role == 'parent'
+                        ? onGoToDashboard
                         : () => _showFeatureInfo(
                             context,
                             firstTitle,
@@ -1877,11 +1992,13 @@ class _Step3Panel extends StatelessWidget {
                     iconColor: const Color(0xFF8151C8),
                     title: secondTitle,
                     subtitle: 'Get support from people you trust',
-                    onTap: () => _showFeatureInfo(
-                      context,
-                      secondTitle,
-                      'Your school can help connect the right people to your account.',
-                    ),
+                    onTap: role == 'parent'
+                        ? onGoToDashboard
+                        : () => _showFeatureInfo(
+                            context,
+                            secondTitle,
+                            'Your school can help connect the right people to your account.',
+                          ),
                   ),
                 ],
               ),

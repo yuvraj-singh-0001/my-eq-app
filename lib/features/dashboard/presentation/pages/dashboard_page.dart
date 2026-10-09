@@ -4,6 +4,8 @@ import '../../../authentication/data/auth_api.dart';
 import '../../../journal/presentation/pages/journal_page.dart';
 import 'profile_page.dart';
 import 'teacher_dashboard_page.dart';
+import '../../../parent/presentation/pages/parent_dashboard_page.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.result});
@@ -15,11 +17,12 @@ class DashboardPage extends StatelessWidget {
     if (result.role == 'teacher') {
       return TeacherDashboardPage(result: result);
     }
+    if (result.role == 'parent') {
+      return ParentDashboardPage(result: result);
+    }
     final isTeacher = result.role == 'teacher';
     final isParent = result.role == 'parent';
-    final roleName = isTeacher
-        ? 'Teacher'
-        : (isParent ? 'Parent' : 'Student');
+    final roleName = isTeacher ? 'Teacher' : (isParent ? 'Parent' : 'Student');
     final accountId = result.teacherId ?? result.studentId;
     final roleIcon = isTeacher
         ? Icons.groups_outlined
@@ -29,23 +32,95 @@ class DashboardPage extends StatelessWidget {
 
     final actions = isTeacher
         ? <(IconData, Color, Color, String, String)>[
-            (Icons.groups_outlined, const Color(0xFFE2F7F0), const Color(0xFF149B78), 'View Your Students', 'See the students connected to your class'),
-            (Icons.insights_outlined, const Color(0xFFE6F2FF), const Color(0xFF2682D8), 'Track Class Progress', 'Support each student’s growth'),
-            (Icons.forum_outlined, const Color(0xFFF0E8FF), const Color(0xFF8151C8), 'Connect with Parents', 'Keep families involved in the journey'),
-            (Icons.person_outline, const Color(0xFFFFF5D9), const Color(0xFFD19A00), 'Your Profile', 'Review your teacher account details'),
+            (
+              Icons.groups_outlined,
+              const Color(0xFFE2F7F0),
+              const Color(0xFF149B78),
+              'View Your Students',
+              'See the students connected to your class',
+            ),
+            (
+              Icons.insights_outlined,
+              const Color(0xFFE6F2FF),
+              const Color(0xFF2682D8),
+              'Track Class Progress',
+              'Support each student’s growth',
+            ),
+            (
+              Icons.forum_outlined,
+              const Color(0xFFF0E8FF),
+              const Color(0xFF8151C8),
+              'Connect with Parents',
+              'Keep families involved in the journey',
+            ),
+            (
+              Icons.person_outline,
+              const Color(0xFFFFF5D9),
+              const Color(0xFFD19A00),
+              'Your Profile',
+              'Review your teacher account details',
+            ),
           ]
         : isParent
         ? <(IconData, Color, Color, String, String)>[
-            (Icons.child_care_outlined, const Color(0xFFE2F7F0), const Color(0xFF149B78), 'Support Your Child', 'Find ways to encourage daily growth'),
-            (Icons.insights_outlined, const Color(0xFFE6F2FF), const Color(0xFF2682D8), 'View Progress', 'Follow your child’s wellbeing journey'),
-            (Icons.forum_outlined, const Color(0xFFF0E8FF), const Color(0xFF8151C8), 'Connect with Teacher', 'Stay in touch with the school'),
-            (Icons.person_outline, const Color(0xFFFFF5D9), const Color(0xFFD19A00), 'Your Profile', 'Review your parent account details'),
+            (
+              Icons.child_care_outlined,
+              const Color(0xFFE2F7F0),
+              const Color(0xFF149B78),
+              'Support Your Child',
+              'Find ways to encourage daily growth',
+            ),
+            (
+              Icons.insights_outlined,
+              const Color(0xFFE6F2FF),
+              const Color(0xFF2682D8),
+              'View Progress',
+              'Follow your child’s wellbeing journey',
+            ),
+            (
+              Icons.forum_outlined,
+              const Color(0xFFF0E8FF),
+              const Color(0xFF8151C8),
+              'Connect with Teacher',
+              'Stay in touch with the school',
+            ),
+            (
+              Icons.person_outline,
+              const Color(0xFFFFF5D9),
+              const Color(0xFFD19A00),
+              'Your Profile',
+              'Review your parent account details',
+            ),
           ]
         : <(IconData, Color, Color, String, String)>[
-            (Icons.edit_note_rounded, const Color(0xFFE2F7F0), const Color(0xFF149B78), 'Write Your First Reflection', 'Share how you are feeling today'),
-            (Icons.track_changes_rounded, const Color(0xFFE6F2FF), const Color(0xFF2682D8), 'Set Your First Goal', 'Take a small step toward a bigger you'),
-            (Icons.groups_rounded, const Color(0xFFF0E8FF), const Color(0xFF8151C8), 'Connect with Teacher/Parent', 'Get support from people you trust'),
-            (Icons.person_outline, const Color(0xFFFFF5D9), const Color(0xFFD19A00), 'Your Profile', 'Review your student account details'),
+            (
+              Icons.edit_note_rounded,
+              const Color(0xFFE2F7F0),
+              const Color(0xFF149B78),
+              'Write Your First Reflection',
+              'Share how you are feeling today',
+            ),
+            (
+              Icons.track_changes_rounded,
+              const Color(0xFFE6F2FF),
+              const Color(0xFF2682D8),
+              'Set Your First Goal',
+              'Take a small step toward a bigger you',
+            ),
+            (
+              Icons.groups_rounded,
+              const Color(0xFFF0E8FF),
+              const Color(0xFF8151C8),
+              'Connect with Teacher/Parent',
+              'Get support from people you trust',
+            ),
+            (
+              Icons.person_outline,
+              const Color(0xFFFFF5D9),
+              const Color(0xFFD19A00),
+              'Your Profile',
+              'Review your student account details',
+            ),
           ];
 
     return Scaffold(
@@ -53,9 +128,11 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('MyEQ Dashboard'),
         actions: [
+          NotificationBell(result: result),
           IconButton(
             tooltip: 'Sign out',
-            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            onPressed: () =>
+                Navigator.of(context).popUntil((route) => route.isFirst),
             icon: const Icon(Icons.logout_rounded),
           ),
         ],
@@ -232,7 +309,8 @@ class DashboardPage extends StatelessWidget {
                       );
                       return;
                     }
-                    if (!isTeacher && !isParent &&
+                    if (!isTeacher &&
+                        !isParent &&
                         action.$4 == 'Write Your First Reflection') {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -248,7 +326,10 @@ class DashboardPage extends StatelessWidget {
               ],
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEDF8F4),
                   borderRadius: BorderRadius.circular(16),
