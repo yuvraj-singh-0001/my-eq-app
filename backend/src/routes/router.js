@@ -5,7 +5,12 @@ import { updateOwnProfile } from '../controllers/auth/profile.js';
 import { publicUser } from '../controllers/auth/auth.helpers.js';
 import { User } from '../models/users.js';
 import { authenticate } from '../middleware/auth.js';
-import { previewStudentId } from '../controllers/auth/auth.helpers.js';
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../controllers/notifications/notifications.controller.js';
+import { previewParentId, previewStudentId } from '../controllers/auth/auth.helpers.js';
 import { Counter } from '../models/counters.js';
 import {
   getSuggestedPeople as getStudentSuggestions,
@@ -27,6 +32,9 @@ import { completeGoal, createGoal, getGoal, listGoals, updateGoalProgress } from
 import {
   connectToStudent as connectParentToStudent,
   getOwnConnections as getParentConnections,
+  getConnectedTeachers as getParentTeachers,
+  getStudentGoalsForParent,
+  listSharedStudentJournalNotes as getParentStudentJournalNotes,
   getStudentGrowthSummary as getParentStudentGrowthSummary,
   submitStudentGrowthFeedback as submitParentGrowthFeedback,
 } from '../controllers/parent/growth.controller.js';
@@ -55,6 +63,12 @@ import {
   respondToConnectionRequest as respondToTeacherConnectionRequest,
   sendConnectionRequest as sendTeacherConnectionRequest,
 } from '../controllers/teacher/connections.controller.js';
+import {
+  findPeople as getParentSuggestions,
+  listConnectionRequests as listParentConnectionRequests,
+  respondToConnectionRequest as respondToParentConnectionRequest,
+  sendConnectionRequest as sendParentConnectionRequest,
+} from '../services/growth/connections.service.js';
 
 export const router = Router();
 
@@ -64,6 +78,9 @@ router.get('/health', (_request, response) => {
 
 router.post('/login', login);
 router.post('/signup', signup);
+router.get('/notifications', authenticate, listNotifications);
+router.patch('/notifications/read-all', authenticate, markAllNotificationsRead);
+router.patch('/notifications/:notificationId/read', authenticate, markNotificationRead);
 router.get('/student/journal/notes', authenticate, listJournalNotes);
 router.get('/student/journal/notes/:noteId', authenticate, getOwnJournalNoteDetail);
 router.post('/student/journal/notes', authenticate, createJournalNote);
@@ -78,6 +95,13 @@ router.post('/student/growth/connection-requests', authenticate, sendStudentConn
 router.post('/student/growth/connection-requests/:requestId/respond', authenticate, respondToStudentConnectionRequest);
 router.post('/parent/connect/student', authenticate, connectParentToStudent);
 router.get('/parent/growth/connections', authenticate, getParentConnections);
+router.get('/parent/growth/teachers', authenticate, getParentTeachers);
+router.get('/parent/growth/people', authenticate, getParentSuggestions);
+router.get('/parent/growth/connection-requests', authenticate, listParentConnectionRequests);
+router.post('/parent/growth/connection-requests', authenticate, sendParentConnectionRequest);
+router.post('/parent/growth/connection-requests/:requestId/respond', authenticate, respondToParentConnectionRequest);
+router.get('/parent/students/:studentId/reflections', authenticate, getParentStudentJournalNotes);
+router.get('/parent/students/:studentId/goals', authenticate, getStudentGoalsForParent);
 router.post('/parent/students/:studentId/growth-feedback', authenticate, submitParentGrowthFeedback);
 router.get('/parent/students/:studentId/growth-summary', authenticate, getParentStudentGrowthSummary);
 router.post('/teacher/students/:studentId/growth-feedback', authenticate, submitTeacherGrowthFeedback);
@@ -131,7 +155,10 @@ router.get('/check-availability', async (request, response) => {
 });
 
 router.get('/account-id', async (request, response) => {
-  const role = request.query.role === 'teacher' ? 'teacher' : 'student';
+  const role = ['teacher', 'parent'].includes(request.query.role) ? request.query.role : 'student';
+  if (role === 'parent') {
+    return response.json({ success: true, data: { accountId: await previewParentId() } });
+  }
   if (role === 'teacher') {
     const counter = await Counter.findById('teacherId').select('sequence');
     const nextSequence = (counter?.sequence ?? 0) + 1;

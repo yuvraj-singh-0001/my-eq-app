@@ -3,6 +3,10 @@ import { JournalNoteView } from '../../models/journal-note-view.js';
 import { User } from '../../models/users.js';
 import { createHttpError } from '../auth/auth.helpers.js';
 import mongoose from 'mongoose';
+import {
+  createNotifications,
+  notificationEntry,
+} from '../../services/notifications/notifications.service.js';
 
 const allowedMoods = new Set(['Great', 'Good', 'Okay', 'Low', 'Hard']);
 
@@ -23,6 +27,7 @@ function toClientNote(note) {
     sections: note.sections ?? [],
     createdAt: note.createdAt,
     isPrivate: note.isPrivate,
+    sharedWithParents: note.sharedWithParents === true,
   };
 }
 
@@ -214,6 +219,7 @@ export async function createJournalNote(request, response) {
     ? request.body.customText.trim()
     : '';
   const rawSections = request.body?.sections ?? [];
+  const sharedWithParents = request.body?.sharedWithParents === true;
 
   if (!category || category.length > 80) {
     throw createHttpError(400, 'Choose a valid note category.');
@@ -277,7 +283,39 @@ export async function createJournalNote(request, response) {
     customText,
     sections,
     isPrivate: true,
+    sharedWithParents,
   });
+
+  const student = await User.findById(request.auth.sub)
+    .select('fullName assignedTeacher linkedParents')
+    .lean();
+  const recipients = new Map();
+  if (student?.assignedTeacher) {
+    recipients.set(String(student.assignedTeacher), 'teacher');
+  }
+  if (sharedWithParents) {
+    for (const parentId of student?.linkedParents ?? []) {
+      recipients.set(String(parentId), 'parent');
+    }
+  }
+  await createNotifications([...recipients].map(([recipient, role]) =>
+    notificationEntry({
+      recipient,
+      actor: request.auth.sub,
+      actorName: student?.fullName ?? 'A student',
+      actorRole: 'student',
+      type: 'student_note_saved',
+      title: role === 'teacher' ? 'New student reflection' : 'New shared reflection',
+      body: role === 'teacher'
+        ? `${student?.fullName ?? 'A student'} saved a reflection.`
+        : `${student?.fullName ?? 'Your child'} shared a new reflection with you.`,
+      payload: {
+        studentId: String(request.auth.sub),
+        noteId: String(note._id),
+        destination: role === 'teacher' ? 'student_reflections' : 'shared_reflections',
+      },
+    }),
+  ));
 
   return response.status(201).json({
     success: true,

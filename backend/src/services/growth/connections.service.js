@@ -1,14 +1,18 @@
 import mongoose from 'mongoose';
 import { GrowthConnectionRequest } from '../../models/growth-connection-request.js';
 import { JournalNote } from '../../models/journal-notes.js';
+import {
+  createNotifications,
+  notificationEntry,
+} from '../notifications/notifications.service.js';
 import { User } from '../../models/users.js';
 import { createHttpError } from '../../controllers/auth/auth.helpers.js';
 
-const connectableRoles = new Set(['student', 'teacher']);
+const connectableRoles = new Set(['student', 'teacher', 'parent']);
 
 function requireConnectableUser(request) {
   if (!connectableRoles.has(request.auth.role)) {
-    throw createHttpError(403, 'Connections are available to student and teacher accounts.');
+    throw createHttpError(403, 'Connections are available to student, teacher, and parent accounts.');
   }
 }
 
@@ -42,12 +46,13 @@ async function loadStatusMap(user, people) {
         ],
       }).lean()
       : Promise.resolve([]),
-    User.findById(user._id).select('linkedPeers assignedTeacher linkedParents').lean(),
+    User.findById(user._id).select('linkedPeers assignedTeacher linkedParents linkedStudents').lean(),
   ]);
   const status = new Map();
   const connectedIds = new Set([
     ...(peers?.linkedPeers ?? []).map(String),
     ...(peers?.linkedParents ?? []).map(String),
+    ...(peers?.linkedStudents ?? []).map(String),
     ...(peers?.assignedTeacher ? [String(peers.assignedTeacher)] : []),
   ]);
   if (user.role === 'teacher') {
@@ -72,13 +77,13 @@ async function loadStatusMap(user, people) {
 export async function findPeople(request, response) {
   requireConnectableUser(request);
   const user = await User.findById(request.auth.sub)
-    .select('role schoolName className section linkedPeers assignedTeacher linkedParents');
+    .select('role schoolName className section linkedPeers assignedTeacher linkedParents linkedStudents');
   if (!user) throw createHttpError(404, 'Your account was not found.');
 
   const search = typeof request.query.search === 'string' ? request.query.search.trim() : '';
   const baseFilter = {
     _id: { $ne: user._id },
-    role: user.role === 'teacher' ? 'student' : { $in: ['student', 'teacher'] },
+    role: ['teacher', 'parent'].includes(user.role) ? 'student' : { $in: ['student', 'teacher'] },
   };
   let filter;
   if (search) {
@@ -135,7 +140,7 @@ export async function sendConnectionRequest(request, response) {
     throw createHttpError(400, 'Enter a valid student or teacher ID or username.');
   }
   const requester = await User.findById(request.auth.sub)
-    .select('role assignedTeacher linkedPeers');
+    .select('fullName role assignedTeacher linkedPeers');
   if (!requester) throw createHttpError(404, 'Your account was not found.');
 
   const normalizedIdentity = identity.toUpperCase();
@@ -145,8 +150,8 @@ export async function sendConnectionRequest(request, response) {
       { studentId: normalizedIdentity },
       { teacherId: normalizedIdentity },
     ],
-    role: requester.role === 'teacher' ? 'student' : { $in: ['student', 'teacher'] },
-  }).select('_id role');
+    role: ['teacher', 'parent'].includes(requester.role) ? 'student' : { $in: ['student', 'teacher'] },
+  }).select('_id role fullName');
   if (!recipient) throw createHttpError(404, 'No student or teacher account matched that ID or username.');
   if (String(recipient._id) === String(requester._id)) {
     throw createHttpError(400, 'You cannot send a connection request to yourself.');
@@ -159,6 +164,9 @@ export async function sendConnectionRequest(request, response) {
     if (student?.assignedTeacher && !alreadyConnected) {
       throw createHttpError(409, 'This student already has a connected teacher.');
     }
+  } else if (requester.role === 'parent' && recipient.role === 'student') {
+    const student = await User.findById(recipient._id).select('linkedParents');
+    alreadyConnected = student?.linkedParents?.some((parent) => String(parent) === String(requester._id)) ?? false;
   } else if (recipient.role === 'teacher') {
     alreadyConnected = String(requester.assignedTeacher ?? '') === String(recipient._id);
   } else {
@@ -200,6 +208,21 @@ export async function sendConnectionRequest(request, response) {
     }
     throw error;
   }
+  await createNotifications([
+    notificationEntry({
+      recipient: recipient._id,
+      actor: requester._id,
+      actorName: requester.fullName,
+      actorRole: requester.role,
+      type: 'connection_request_received',
+      title: 'New connection request',
+      body: `${requester.fullName} (${requester.role}) asked to connect with you.`,
+      payload: {
+        requestId: connectionRequest._id.toString(),
+        destination: 'connection_requests',
+      },
+    }),
+  ]);
   return response.status(201).json({
     success: true,
     data: { request: { id: connectionRequest._id.toString(), status: connectionRequest.status } },
@@ -289,6 +312,16 @@ export async function respondToConnectionRequest(request, response) {
         User.updateOne({ _id: sender._id }, { $addToSet: { linkedPeers: recipient._id } }),
         User.updateOne({ _id: recipient._id }, { $addToSet: { linkedPeers: sender._id } }),
       ]);
+    } else if (
+      (sender.role === 'parent' && recipient.role === 'student') ||
+      (sender.role === 'student' && recipient.role === 'parent')
+    ) {
+      const parent = sender.role === 'parent' ? sender : recipient;
+      const student = sender.role === 'student' ? sender : recipient;
+      await Promise.all([
+        User.updateOne({ _id: student._id }, { $addToSet: { linkedParents: parent._id } }),
+        User.updateOne({ _id: parent._id }, { $addToSet: { linkedStudents: student._id } }),
+      ]);
     } else {
       const student = sender.role === 'student' ? sender : recipient;
       const teacher = sender.role === 'teacher' ? sender : recipient;
@@ -311,5 +344,24 @@ export async function respondToConnectionRequest(request, response) {
     connectionRequest.status = 'declined';
   }
   await connectionRequest.save();
+  const actor = await User.findById(request.auth.sub).select('fullName role').lean();
+  const accepted = decision === 'accept';
+  await createNotifications([
+    notificationEntry({
+      recipient: connectionRequest.requester,
+      actor: request.auth.sub,
+      actorName: actor?.fullName ?? 'The other account',
+      actorRole: actor?.role ?? '',
+      type: accepted ? 'connection_request_accepted' : 'connection_request_declined',
+      title: accepted ? 'Connection request accepted' : 'Connection request declined',
+      body: accepted
+        ? `${actor?.fullName ?? 'The other account'} accepted your connection request.`
+        : `${actor?.fullName ?? 'The other account'} declined your connection request.`,
+      payload: {
+        requestId: connectionRequest._id.toString(),
+        destination: 'connections',
+      },
+    }),
+  ]);
   return response.json({ success: true, data: { status: connectionRequest.status } });
 }

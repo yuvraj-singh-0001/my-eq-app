@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     gender: { type: String, enum: ['Male', 'Female', 'Other'], default: null },
     studentId: { type: String, unique: true, sparse: true },
     teacherId: { type: String, unique: true, sparse: true },
+    parentId: { type: String, unique: true, sparse: true },
     schoolName: { type: String, trim: true, maxlength: 150 },
     teachingSubject: { type: String, trim: true, maxlength: 80 },
     father: {

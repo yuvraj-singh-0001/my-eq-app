@@ -58,6 +58,7 @@ class _SessionStartupState extends State<_SessionStartup> {
         fullName: profile.fullName,
         role: profile.role,
         teacherId: profile.teacherId,
+        parentId: profile.parentId,
         studentId: profile.studentId,
         email: profile.email,
         username: profile.username,
