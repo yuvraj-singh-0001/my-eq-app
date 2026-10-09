@@ -2,6 +2,10 @@ import { GrowthFeedback } from '../../models/growth-feedback.js';
 import { User } from '../../models/users.js';
 import { buildGrowthSummary, buildTeacherActivity, findStudent, saveGrowthFeedback } from '../../services/growth/growth.service.js';
 import { createHttpError } from '../auth/auth.helpers.js';
+import {
+  createNotifications,
+  notificationEntry,
+} from '../../services/notifications/notifications.service.js';
 
 function requireTeacher(request) {
   if (request.auth.role !== 'teacher') {
@@ -21,6 +25,29 @@ export async function submitStudentGrowthFeedback(request, response) {
   requireTeacher(request);
   const student = await findAssignedStudent(request, request.params.studentId);
   const feedback = await saveGrowthFeedback(request, student);
+  const teacher = await User.findById(request.auth.sub).select('fullName').lean();
+  const recipients = new Map([[String(student._id), 'student']]);
+  for (const parentId of student.linkedParents ?? []) {
+    recipients.set(String(parentId), 'parent');
+  }
+  await createNotifications([...recipients].map(([recipient, role]) =>
+    notificationEntry({
+      recipient,
+      actor: request.auth.sub,
+      actorName: teacher?.fullName ?? 'Your teacher',
+      actorRole: 'teacher',
+      type: 'teacher_feedback_received',
+      title: 'Teacher shared a progress update',
+      body: role === 'student'
+        ? 'Your connected teacher added a new growth update.'
+        : `The connected teacher shared a progress update for ${student.fullName}.`,
+      payload: {
+        studentId: String(student._id),
+        feedbackId: String(feedback._id),
+        destination: role === 'student' ? 'student_progress' : 'parent_progress',
+      },
+    }),
+  ));
   return response.status(201).json({ success: true, data: { feedback } });
 }
 

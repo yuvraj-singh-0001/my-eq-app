@@ -3,6 +3,10 @@ import { GrowthConnectionInvite } from '../../models/growth-connection-invite.js
 import { User } from '../../models/users.js';
 import { buildGrowthSummary, saveGrowthFeedback } from '../../services/growth/growth.service.js';
 import { createHttpError } from '../auth/auth.helpers.js';
+import {
+  createNotifications,
+  notificationEntry,
+} from '../../services/notifications/notifications.service.js';
 
 function requireStudent(request) {
   if (request.auth.role !== 'student') {
@@ -30,6 +34,29 @@ export async function submitOwnGrowthFeedback(request, response) {
   const student = await User.findById(request.auth.sub);
   if (!student) throw createHttpError(404, 'Student account was not found.');
   const feedback = await saveGrowthFeedback(request, student);
+  const recipients = new Map();
+  if (student.assignedTeacher) {
+    recipients.set(String(student.assignedTeacher), 'teacher');
+  }
+  for (const parentId of student.linkedParents ?? []) {
+    recipients.set(String(parentId), 'parent');
+  }
+  await createNotifications([...recipients].map(([recipient, role]) =>
+    notificationEntry({
+      recipient,
+      actor: student._id,
+      actorName: student.fullName,
+      actorRole: 'student',
+      type: 'growth_feedback_received',
+      title: 'New student growth check-in',
+      body: `${student.fullName} added a growth check-in.`,
+      payload: {
+        studentId: String(student._id),
+        feedbackId: String(feedback._id),
+        destination: role === 'parent' ? 'parent_progress' : 'teacher_progress',
+      },
+    }),
+  ));
   return response.status(201).json({ success: true, data: { feedback } });
 }
 

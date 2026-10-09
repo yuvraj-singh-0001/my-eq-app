@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { config } from './src/config/config.js';
 import { connectDatabase, disconnectDatabase } from './src/config/db.js';
 import { router } from './src/routes/router.js';
+import { createDueNotificationDigests } from './src/services/notifications/notifications.service.js';
 
 const app = express();
 
@@ -49,6 +50,13 @@ app.use((error, _request, response, _next) => {
 
 async function startServer() {
   await connectDatabase();
+  await createDueNotificationDigests();
+  const notificationDigestTimer = setInterval(() => {
+    createDueNotificationDigests().catch((error) => {
+      console.error('Could not create scheduled notification summaries:', error);
+    });
+  }, 5 * 60 * 1000);
+  notificationDigestTimer.unref();
 
   const server = app.listen(config.port, () => {
     console.log(`MyEQ App backend running on port ${config.port}`);
@@ -56,6 +64,7 @@ async function startServer() {
 
   const shutdown = async (signal) => {
     console.log(`${signal} received. Shutting down gracefully.`);
+    clearInterval(notificationDigestTimer);
     server.close(async () => {
       await disconnectDatabase();
       process.exit(0);

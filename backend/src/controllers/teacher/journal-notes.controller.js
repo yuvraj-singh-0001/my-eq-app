@@ -185,15 +185,44 @@ export async function getAssignedStudentReflectionOverview(request, response) {
     ]),
   ]);
 
+  const moodCounts = Object.fromEntries(moods.map(({ _id, count }) => [_id, count]));
+  const lowOrHard = (moodCounts.Low ?? 0) + (moodCounts.Hard ?? 0);
+  const positive = (moodCounts.Great ?? 0) + (moodCounts.Good ?? 0);
+  const topMood = [...moods].sort((a, b) => b.count - a.count)[0];
+  const topTopics = categories.slice(0, 2).map(({ _id }) => _id).filter(Boolean);
+  const topFeelings = feelings.slice(0, 2).map(({ _id }) => _id).filter(Boolean);
+  let autoOverview;
+  if (!totalReflections) {
+    autoOverview = 'There are no saved reflections in this date range, so there is not enough information for an overview.';
+  } else if (totalReflections === 1) {
+    const moodText = topMood ? ` The selected mood was ${topMood._id}.` : ' No mood was selected.';
+    const topicText = topTopics.length ? ` The reflection topic was ${topTopics.join(' and ')}.` : '';
+    const feelingText = topFeelings.length ? ` The student selected ${topFeelings.join(' and ')} as feelings.` : '';
+    autoOverview = `One reflection was saved in this date range.${moodText}${topicText}${feelingText} This is one check-in, not a trend; invite the student to share more if they wish.`;
+  } else {
+    const moodText = topMood
+      ? ` ${topMood._id} was the most frequently selected mood (${topMood.count} of ${totalReflections} entries).`
+      : ' No mood labels were recorded.';
+    const topicText = topTopics.length ? ` Common topics included ${topTopics.join(' and ')}.` : '';
+    const feelingText = topFeelings.length ? ` Commonly selected feelings included ${topFeelings.join(' and ')}.` : '';
+    const supportText = lowOrHard > 0
+      ? ` Low or Hard was selected in ${lowOrHard} ${lowOrHard === 1 ? 'entry' : 'entries'}; consider a supportive check-in to understand what would help.`
+      : positive > 0
+        ? ` Great or Good was selected in ${positive} ${positive === 1 ? 'entry' : 'entries'}.`
+        : '';
+    autoOverview = `This overview uses ${totalReflections} saved reflections in the selected date range.${moodText}${topicText}${feelingText}${supportText} These are student-selected check-ins, not a diagnosis.`;
+  }
+
   return response.json({
     success: true,
     data: {
       days: daysValue,
       totalReflections,
-      moodCounts: Object.fromEntries(moods.map(({ _id, count }) => [_id, count])),
+      moodCounts,
       trend: trend.map((point) => ({ date: point._id, average: point.average, entries: point.entries })),
       categoryCounts: categories.map(({ _id, count }) => ({ category: _id, count })),
       feelings: feelings.map(({ _id, count }) => ({ feeling: _id, count })),
+      autoOverview,
     },
   });
 }
