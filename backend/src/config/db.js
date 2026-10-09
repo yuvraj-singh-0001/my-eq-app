@@ -9,6 +9,7 @@ import { GrowthConnectionInvite } from '../models/growth-connection-invite.js';
 import { GrowthConnectionRequest } from '../models/growth-connection-request.js';
 import { GrowthGoal } from '../models/growth-goal.js';
 import { GrowthGoalProgress } from '../models/growth-goal-progress.js';
+import { Notification } from '../models/notification.js';
 
 export async function connectDatabase() {
   dns.setServers(config.mongodbDnsServers);
@@ -25,6 +26,7 @@ export async function connectDatabase() {
     GrowthConnectionRequest.createIndexes(),
     GrowthGoal.createIndexes(),
     GrowthGoalProgress.createIndexes(),
+    Notification.createIndexes(),
   ]);
   console.log('MongoDB connected');
 }

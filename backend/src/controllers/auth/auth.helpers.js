@@ -12,6 +12,14 @@ export function normalizeMobile(value) {
   return value.replace(/\D/g, '');
 }
 
+export function compactParentId(value) {
+  if (typeof value !== 'string') return value;
+  const match = /^AFPD0*(\d+)$/i.exec(value.trim());
+  if (!match) return value;
+  const sequence = match[1].replace(/^0+(?=\d)/, '');
+  return `AFPD${sequence.padStart(2, '0')}`;
+}
+
 export function createToken(user) {
   return jwt.sign(
     { sub: user._id.toString(), role: user.role, username: user.username },
@@ -38,10 +46,25 @@ export async function createTeacherId() {
   return `AFD3T${String(counter.sequence).padStart(2, '0')}`;
 }
 
+export async function createParentId() {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'parentId' },
+    { $inc: { sequence: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+  return `AFPD${String(counter.sequence).padStart(2, '0')}`;
+}
+
 export async function previewStudentId() {
   const counter = await Counter.findById('studentId').select('sequence');
   const nextSequence = (counter?.sequence ?? 0) + 1;
   return `AFCD2CD${String(nextSequence).padStart(6, '0')}`;
+}
+
+export async function previewParentId() {
+  const counter = await Counter.findById('parentId').select('sequence');
+  const nextSequence = (counter?.sequence ?? 0) + 1;
+  return `AFPD${String(nextSequence).padStart(2, '0')}`;
 }
 
 export function publicUser(user) {
@@ -49,6 +72,7 @@ export function publicUser(user) {
     id: user._id,
     studentId: user.studentId,
     teacherId: user.teacherId,
+    parentId: compactParentId(user.parentId),
     fullName: user.fullName,
     email: user.email,
     mobileNumber: user.mobileNumber,

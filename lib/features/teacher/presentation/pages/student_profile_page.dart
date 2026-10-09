@@ -1244,9 +1244,6 @@ class _ReflectionOverviewCard extends StatelessWidget {
       );
     }
     if (data == null) return const SizedBox.shrink();
-    final moodEntries = data.moodCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final topMood = moodEntries.isEmpty ? null : moodEntries.first;
     final topics = data.categoryCounts
         .take(3)
         .map((item) => item.label)
@@ -1260,7 +1257,7 @@ class _ReflectionOverviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Reflection overview',
+            'Smart reflection overview',
             style: TextStyle(
               color: Color(0xFF203454),
               fontSize: 15,
@@ -1269,7 +1266,7 @@ class _ReflectionOverviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'A summary of the student’s shared entries for this range.',
+            'A rule-based summary of saved check-ins for this range.',
             style: TextStyle(color: Color(0xFF8793A6), fontSize: 10),
           ),
           const SizedBox(height: 10),
@@ -1283,24 +1280,16 @@ class _ReflectionOverviewCard extends StatelessWidget {
               ),
             )
           else ...[
-            Text(
-              'The student shared ${data.totalReflections} ${data.totalReflections == 1 ? 'reflection' : 'reflections'} in $period.',
-              style: const TextStyle(
-                color: Color(0xFF40516A),
-                fontSize: 12,
-                height: 1.45,
-              ),
-            ),
-            if (topMood != null) ...[
-              const SizedBox(height: 7),
+            if (data.autoOverview.isNotEmpty) ...[
               Text(
-                'Most recorded mood: ${topMood.key} (${topMood.value} ${topMood.value == 1 ? 'entry' : 'entries'}).',
+                data.autoOverview,
                 style: const TextStyle(
                   color: Color(0xFF40516A),
                   fontSize: 12,
-                  height: 1.45,
+                  height: 1.5,
                 ),
               ),
+              const SizedBox(height: 8),
             ],
             if (topics.isNotEmpty) ...[
               const SizedBox(height: 9),

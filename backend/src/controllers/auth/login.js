@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../../models/users.js';
 import { loginSchema } from '../../validation/auth.schemas.js';
-import { createHttpError, createToken, normalizeMobile, publicUser } from './auth.helpers.js';
+import { compactParentId, createHttpError, createToken, normalizeMobile, publicUser } from './auth.helpers.js';
 
 export async function login(request, response) {
   const parsed = loginSchema.safeParse(request.body);
@@ -11,14 +11,25 @@ export async function login(request, response) {
 
   const { identifier, password, role } = parsed.data;
   const trimmed = identifier.trim();
+  const accountId = trimmed.toUpperCase();
   const normalizedIdentifier = trimmed.toLowerCase();
   const mobileNumber = normalizeMobile(identifier);
+  const compactId = compactParentId(accountId);
+  const parentIdMatch = /^AFPD0*(\d+)$/i.exec(accountId);
+  const parentIdCandidates = parentIdMatch
+    ? [...new Set([
+      accountId,
+      compactId,
+      `AFPD${parentIdMatch[1].replace(/^0+(?=\d)/, '').padStart(6, '0')}`,
+    ])]
+    : [accountId];
   const user = await User.findOne({
     $or: [
       { email: normalizedIdentifier },
       { username: normalizedIdentifier },
-      { teacherId: trimmed },
-      { studentId: trimmed },
+      { teacherId: accountId },
+      { studentId: accountId },
+      { parentId: { $in: parentIdCandidates } },
       { mobileNumber },
     ],
   }).select('+passwordHash');

@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { User } from '../../models/users.js';
 import { signupSchema } from '../../validation/auth.schemas.js';
 import { config } from '../../config/config.js';
-import { createHttpError, createStudentId, createTeacherId, createToken, normalizeMobile, publicUser } from './auth.helpers.js';
+import { createHttpError, createParentId, createStudentId, createTeacherId, createToken, normalizeMobile, publicUser } from './auth.helpers.js';
 
 export async function signup(request, response) {
   const parsed = signupSchema.safeParse(request.body);
@@ -16,6 +16,7 @@ export async function signup(request, response) {
   const mobileNumber = normalizeMobile(data.mobileNumber);
   const isTeacher = data.role === 'teacher';
   const isStudent = data.role === 'student';
+  const isParent = data.role === 'parent';
   const fatherMobileNumber = data.father.mobileNumber
     ? normalizeMobile(data.father.mobileNumber)
     : null;
@@ -44,7 +45,7 @@ export async function signup(request, response) {
     ? await createTeacherId()
     : isStudent
       ? await createStudentId()
-      : null;
+      : await createParentId();
   const user = await User.create({
     ...data,
     email,
@@ -53,6 +54,7 @@ export async function signup(request, response) {
     passwordHash,
     ...(isTeacher ? { teacherId: accountId } : {}),
     ...(isStudent ? { studentId: accountId } : {}),
+    ...(isParent ? { parentId: accountId } : {}),
     father: isStudent ? { ...data.father, mobileNumber: fatherMobileNumber } : undefined,
     mother: isStudent ? { ...data.mother, mobileNumber: motherMobileNumber } : undefined,
   });

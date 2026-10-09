@@ -6,6 +6,7 @@ import '../../../authentication/data/auth_session.dart';
 import '../../../authentication/presentation/pages/login_page.dart';
 import '../../../dashboard/presentation/pages/profile_page.dart';
 import 'my_students_page.dart';
+import 'teacher_messages_page.dart';
 
 class TeacherRequestsReviewPage extends StatefulWidget {
   const TeacherRequestsReviewPage({
@@ -240,16 +241,14 @@ class _TeacherRequestsReviewPageState extends State<TeacherRequestsReviewPage> {
         );
         break;
       case 2:
-      case 3:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              index == 2
-                  ? 'Insights are on the teacher dashboard.'
-                  : 'Messages are not available yet.',
-            ),
+          const SnackBar(
+            content: Text('Insights are on the teacher dashboard.'),
           ),
         );
+        break;
+      case 3:
+        TeacherMessagesPage.open(context, widget.result);
         break;
       case 4:
         Navigator.of(context).push<void>(

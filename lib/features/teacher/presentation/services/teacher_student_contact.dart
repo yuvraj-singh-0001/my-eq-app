@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../authentication/data/auth_api.dart';
-import '../../../authentication/presentation/pages/login_page.dart';
 
 /// Opens the system SMS composer or dialer after an explicit teacher action.
 /// Reflection wording and mood are never copied into the external message.
@@ -98,19 +99,18 @@ class TeacherStudentContact {
     );
     controller.dispose();
     if (approvedDraft == null || !context.mounted) return;
-    final uri = Uri(
-      scheme: 'sms',
-      path: phone,
-      queryParameters: {'body': approvedDraft},
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final whatsappNumber = digits.length == 10 ? '91$digits' : digits;
+    final uri = Uri.https('wa.me', '/$whatsappNumber', {'text': approvedDraft});
+    final completed = await _openAndAsk(
+      context: context,
+      uri: uri,
+      title: 'Did you send the WhatsApp message?',
+      positiveLabel: 'Yes, sent',
+      negativeLabel: 'Not sent',
     );
-    try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-          context.mounted) {
-        _show(context, 'No messaging app is available on this device.');
-      }
-    } catch (_) {
-      if (context.mounted) _show(context, 'Could not open the messaging app.');
-    }
+    if (completed == null || !context.mounted) return;
+    await _saveCommunication(context, result, student, 'whatsapp', completed);
   }
 
   static Future<void> call({
@@ -125,13 +125,11 @@ class TeacherStudentContact {
       _show(context, 'No student mobile number is available.');
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final openDialer = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Call ${student.fullName}?'),
-        content: const Text(
-          'Your phone app will open so you can review and place the call.',
-        ),
+        content: const Text('Your phone app will open so you can review and place the call.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -145,17 +143,84 @@ class TeacherStudentContact {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (openDialer != true || !context.mounted) return;
+    final completed = await _openAndAsk(
+      context: context,
+      uri: Uri(scheme: 'tel', path: phone),
+      title: 'Did you complete the call?',
+      positiveLabel: 'Yes, completed',
+      negativeLabel: 'Not completed',
+    );
+    if (completed == null || !context.mounted) return;
+    await _saveCommunication(context, result, student, 'call', completed);
+  }
+
+  static Future<bool?> _openAndAsk({
+    required BuildContext context,
+    required Uri uri,
+    required String title,
+    required String positiveLabel,
+    required String negativeLabel,
+  }) async {
+    final observer = _AppResumeObserver();
+    WidgetsBinding.instance.addObserver(observer);
     try {
-      if (!await launchUrl(
-            Uri(scheme: 'tel', path: phone),
-            mode: LaunchMode.externalApplication,
-          ) &&
-          context.mounted) {
-        _show(context, 'No phone app is available on this device.');
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        if (context.mounted) _show(context, 'Could not open the selected app.');
+        return null;
       }
+      await observer.waitForResume();
     } catch (_) {
-      if (context.mounted) _show(context, 'Could not open the phone app.');
+      if (context.mounted) _show(context, 'Could not open the selected app.');
+      return null;
+    } finally {
+      WidgetsBinding.instance.removeObserver(observer);
+    }
+    if (!context.mounted) return null;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(title),
+          content: const Text('Save this outcome in your teacher communication history?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(negativeLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(positiveLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _saveCommunication(
+    BuildContext context,
+    LoginResult result,
+    GrowthConnectionData student,
+    String channel,
+    bool completed,
+  ) async {
+    try {
+      await AuthApi.createTeacherCommunication(
+        token: result.token!,
+        studentId: student.accountId!,
+        channel: channel,
+        completed: completed,
+      );
+      if (context.mounted) {
+        _show(context, completed ? 'Saved to communication history.' : 'Outcome saved.');
+      }
+    } on AuthApiException catch (error) {
+      if (context.mounted) _show(context, error.message);
+    } catch (_) {
+      if (context.mounted) _show(context, 'Could not save communication history.');
     }
   }
 
@@ -196,17 +261,21 @@ class TeacherStudentContact {
         ? 'Hi'
         : 'Hi $firstName';
     final mood = notes.isEmpty ? '' : (notes.first.mood ?? '').toLowerCase();
-    if (['sad', 'angry', 'stressed', 'nervous', 'worried', 'scared']
+    if (['low', 'hard', 'sad', 'angry', 'stressed', 'nervous', 'worried', 'scared']
         .any(mood.contains)) {
       return '$greeting, I wanted to check in and see how you are doing today. '
           'No pressure to reply or share more than you want to. I am here if '
           'you would like to talk.';
     }
-    if (['happy', 'excited', 'proud', 'calm', 'confident']
+    if (['great', 'good', 'happy', 'excited', 'proud', 'calm', 'confident']
         .any(mood.contains)) {
       return '$greeting, thanks for sharing your reflection. I noticed the '
           'effort you put in. What part are you most proud of? I am cheering '
           'you on.';
+    }
+    if (notes.isEmpty) {
+      return '$greeting, just checking in to see how your day is going. '
+          'If you would like to talk about anything, I am here to listen.';
     }
     return '$greeting, thanks for sharing your reflection. How are you feeling '
         'about things today? If you would like, we can talk through one small '
@@ -215,5 +284,26 @@ class TeacherStudentContact {
 
   static void _show(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _AppResumeObserver with WidgetsBindingObserver {
+  final Completer<void> _resumed = Completer<void>();
+  bool _leftApp = false;
+
+  Future<void> waitForResume() =>
+      _resumed.future.timeout(const Duration(minutes: 30));
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _leftApp = true;
+    } else if (state == AppLifecycleState.resumed &&
+        _leftApp &&
+        !_resumed.isCompleted) {
+      _resumed.complete();
+    }
   }
 }
