@@ -4,6 +4,7 @@ import '../../../authentication/data/auth_api.dart';
 import '../widgets/parent_bottom_nav.dart';
 import '../widgets/shared_reflection_overview.dart';
 import '../widgets/teacher_feedback_card.dart';
+import '../../../student/presentation/widgets/career_insights_card.dart';
 import 'parent_dashboard_page.dart';
 import 'parent_navigation_page.dart';
 
@@ -141,7 +142,7 @@ class _ParentStudentPageState extends State<ParentStudentPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'These are reflections your child has chosen to share with you. Private notes stay private.',
+                      'These are your child’s reflections and growth updates. Use them to listen, encourage and support.',
                       style: TextStyle(
                         color: Color(0xFF42675F),
                         fontSize: 12,
@@ -217,7 +218,7 @@ class _ParentStudentPageState extends State<ParentStudentPage> {
                 )
               else if (_notes.isEmpty)
                 const _StateCard(
-                  text: 'No reflections have been shared yet. Your child can choose to share a note while writing it.',
+                  text: 'No reflections have been added yet. They will appear here as your child uses the app.',
                   icon: Icons.menu_book_outlined,
                 )
               else
@@ -263,6 +264,8 @@ class _ParentStudentPageState extends State<ParentStudentPage> {
     final latestMood = sharedMoods.isEmpty ? null : sharedMoods.first.mood;
     return [
       SharedReflectionOverview(notes: _notes),
+      const SizedBox(height: 12),
+      CareerInsightsCard(notes: _notes),
       const SizedBox(height: 12),
       Container(
         padding: const EdgeInsets.all(16),

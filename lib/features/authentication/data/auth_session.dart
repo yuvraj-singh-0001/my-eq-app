@@ -45,6 +45,8 @@ abstract final class AuthSession {
       studentId: json['studentId'] as String?,
       email: json['email'] as String?,
       username: json['username'] as String?,
+      parentType: json['parentType'] as String?,
+      gender: json['gender'] as String?,
       token: token,
     );
   }

@@ -233,7 +233,7 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'You can view reflections your child chooses to share. Private notes stay private.',
+                          'You can view your connected child’s reflections and growth updates here.',
                           style: TextStyle(
                             color: Color(0xFF42675F),
                             fontSize: 12,

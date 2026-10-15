@@ -164,7 +164,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         backgroundColor: const Color(0xFFF5F9FA),
         automaticallyImplyLeading: false,
         title: const Text(
-          'Parent Home',
+          'Family Home',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             color: Color(0xFF162B4A),
@@ -257,8 +257,8 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Welcome,',
+                          Text(
+                            'Welcome, ${_address(widget.result)}',
                             style: TextStyle(
                               color: Color(0xFF557168),
                               fontSize: 13,
@@ -276,7 +276,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                           ),
                           if (id != null)
                             Text(
-                              'Parent ID  $id',
+                              'Family ID  $id',
                               style: const TextStyle(
                                 color: Color(0xFF557168),
                                 fontSize: 11,
@@ -456,6 +456,12 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         },
       ),
     );
+  }
+
+  String _address(LoginResult result) {
+    if (result.gender == 'Male') return 'Sir';
+    if (result.gender == 'Female') return 'Ma’am';
+    return result.parentType ?? result.fullName;
   }
 }
 
