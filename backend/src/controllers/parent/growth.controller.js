@@ -186,10 +186,9 @@ export async function listSharedStudentJournalNotes(request, response) {
   const linked = student?.role === 'student' && student.linkedParents?.some(
     (parentId) => parentId.toString() === request.auth.sub,
   );
-  if (!linked) throw createHttpError(403, 'Connect with this student before viewing shared notes.');
+  if (!linked) throw createHttpError(403, 'Connect with this student before viewing notes.');
   const notes = await JournalNote.find({
     owner: student._id,
-    sharedWithParents: true,
   }).sort({ createdAt: -1, _id: -1 }).limit(50).lean();
   return response.json({
     success: true,

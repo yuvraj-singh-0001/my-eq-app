@@ -288,7 +288,6 @@ class JournalNoteData {
     this.responses = const [],
     this.customText = '',
     this.sections = const [],
-    this.sharedWithParents = false,
   });
 
   final String id;
@@ -299,7 +298,6 @@ class JournalNoteData {
   final List<String> responses;
   final String customText;
   final List<Map<String, dynamic>> sections;
-  final bool sharedWithParents;
 
   factory JournalNoteData.fromJson(Map<String, dynamic> json) {
     return JournalNoteData(
@@ -317,7 +315,6 @@ class JournalNoteData {
       sections: (json['sections'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
           .toList(growable: false),
-      sharedWithParents: json['sharedWithParents'] as bool? ?? false,
     );
   }
 }
@@ -1444,6 +1441,40 @@ class AuthApi {
     return StudentGrowthSummaryData.fromJson(data);
   }
 
+  static Future<List<GrowthGoalData>> getOwnStudentGoals(
+    String token, {
+    String? status,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/auth/student/growth/goals').replace(
+        queryParameters: {'status': ?status},
+      );
+      final response = await http
+          .get(uri, headers: {'Authorization': '******'})
+          .timeout(const Duration(seconds: 10));
+      final body = _decodeBody(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthApiException(
+          body['message'] as String? ?? 'Your support plans could not be loaded.',
+        );
+      }
+      return (body['data']?['goals'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(GrowthGoalData.fromJson)
+          .toList(growable: false);
+    } on AuthApiException {
+      rethrow;
+    } on SocketException {
+      throw const AuthApiException('Cannot connect to load your support plans.');
+    } on http.ClientException {
+      throw const AuthApiException('Cannot connect to load your support plans.');
+    } on TimeoutException {
+      throw const AuthApiException('Loading your support plans timed out.');
+    } on FormatException {
+      throw const AuthApiException('The server returned invalid goal data.');
+    }
+  }
+
   static Future<List<GrowthGoalData>> getParentStudentGoals({
     required String token,
     required String studentId,
@@ -2043,11 +2074,11 @@ class AuthApi {
     } on AuthApiException {
       rethrow;
     } on SocketException {
-      throw const AuthApiException('Cannot connect to load shared notes.');
+      throw const AuthApiException('Cannot connect to load student reflections.');
     } on http.ClientException {
-      throw const AuthApiException('Cannot connect to load shared notes.');
+      throw const AuthApiException('Cannot connect to load student reflections.');
     } on TimeoutException {
-      throw const AuthApiException('Loading shared notes timed out.');
+      throw const AuthApiException('Loading student reflections timed out.');
     } on FormatException {
       throw const AuthApiException(
         'The server returned invalid reflection data.',
@@ -2063,7 +2094,6 @@ class AuthApi {
     List<String> responses = const [],
     String customText = '',
     List<Map<String, Object?>> sections = const [],
-    bool sharedWithParents = false,
   }) async {
     try {
       final response = await http
@@ -2077,8 +2107,6 @@ class AuthApi {
               'category': category,
               'text': text,
               'mood': mood,
-              'isPrivate': true,
-              'sharedWithParents': sharedWithParents,
               'responses': responses,
               'customText': customText,
               'sections': sections,

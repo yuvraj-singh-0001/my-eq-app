@@ -21,7 +21,7 @@ export async function listAssignedStudentJournalNotes(request, response) {
   const limit = Number.isInteger(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 50)
     : 20;
-  const filter = { owner: student._id, isPrivate: true };
+  const filter = { owner: student._id };
   if (request.query.category) {
     if (typeof request.query.category !== 'string' || request.query.category.trim().length > 80) {
       throw createHttpError(400, 'The reflection category is invalid.');
@@ -132,7 +132,7 @@ export async function getAssignedStudentReflectionOverview(request, response) {
   if (daysValue !== 'all' && !['3', '5'].includes(daysValue)) {
     throw createHttpError(400, 'Choose a valid reflection date range.');
   }
-  const filter = { owner: student._id, isPrivate: true };
+  const filter = { owner: student._id };
   if (daysValue !== 'all') {
     filter.createdAt = {
       $gte: new Date(Date.now() - Number(daysValue) * 24 * 60 * 60 * 1000),

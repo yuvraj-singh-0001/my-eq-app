@@ -248,7 +248,7 @@ export async function listConnectionRequests(request, response) {
       .map((row) => row.requester._id)
     : [];
   const previewNotes = previewStudentIds.length > 0
-    ? await JournalNote.find({ owner: { $in: previewStudentIds }, isPrivate: true })
+    ? await JournalNote.find({ owner: { $in: previewStudentIds } })
       .select('owner category sections.subcategory createdAt')
       .sort({ createdAt: -1, _id: -1 })
       .limit(500)

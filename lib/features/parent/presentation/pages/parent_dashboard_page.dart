@@ -66,7 +66,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
             );
             sharedNotes[child.id] = page.notes;
           } on AuthApiException {
-            // A child card remains available if shared reflections cannot load.
+            // A child card remains available if reflections cannot load.
           }
         }),
       );
@@ -162,6 +162,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       backgroundColor: const Color(0xFFF5F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5F9FA),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Parent Home',
           style: TextStyle(
@@ -220,6 +221,8 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         child: RefreshIndicator(
           onRefresh: _loadChildren,
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
               compact ? 16 : 22,
               10,
@@ -297,7 +300,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'A secure connection lets you view reflections they choose to share.',
+                'A secure connection lets you follow your child’s reflections and growth.',
                 style: TextStyle(
                   color: Color(0xFF6D7B91),
                   fontSize: 12,
@@ -570,7 +573,7 @@ class _PrivacyHint extends StatelessWidget {
       SizedBox(width: 8),
       Expanded(
         child: Text(
-          'Only students connected through a valid invite appear here. A parent can read a reflection only when the student chooses to share it.',
+          'Only students connected through a valid invite appear here. Their reflections and growth updates appear in this space.',
           style: TextStyle(color: Color(0xFF74849A), fontSize: 11, height: 1.4),
         ),
       ),

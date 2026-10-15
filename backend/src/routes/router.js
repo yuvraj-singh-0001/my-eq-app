@@ -40,6 +40,7 @@ import {
 } from '../controllers/parent/growth.controller.js';
 import {
   getOwnGrowthSummary,
+  getOwnGoals,
   getOwnConnections as getStudentConnections,
   createParentInvite,
   submitOwnGrowthFeedback,
@@ -88,6 +89,7 @@ router.get('/student/growth/connections/:studentId/journal-notes', authenticate,
 router.post('/student/growth/connect/parent/invite', authenticate, createParentInvite);
 router.post('/student/growth/feedback', authenticate, submitOwnGrowthFeedback);
 router.get('/student/growth/summary', authenticate, getOwnGrowthSummary);
+router.get('/student/growth/goals', authenticate, getOwnGoals);
 router.get('/student/growth/connections', authenticate, getStudentConnections);
 router.get('/student/growth/people', authenticate, getStudentSuggestions);
 router.get('/student/growth/connection-requests', authenticate, listStudentConnectionRequests);

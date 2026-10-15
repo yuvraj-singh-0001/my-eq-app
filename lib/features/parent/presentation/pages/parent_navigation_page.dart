@@ -132,6 +132,7 @@ class _ParentNavigationPageState extends State<ParentNavigationPage> {
       backgroundColor: const Color(0xFFF5F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5F9FA),
+        automaticallyImplyLeading: false,
         title: Text(
           title,
           style: const TextStyle(
@@ -240,7 +241,7 @@ class _ParentNavigationPageState extends State<ParentNavigationPage> {
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
-                'Progress, goals and shared reflections for each connected student.',
+                'Progress, goals and reflections for each connected student.',
                 style: TextStyle(color: Color(0xFF718097), fontSize: 12),
               ),
             ),
@@ -248,7 +249,7 @@ class _ParentNavigationPageState extends State<ParentNavigationPage> {
             _ConnectionCard(
               person: student,
               subtitle: _index == 2
-                  ? 'Open progress, goals and shared reflections'
+                  ? 'Open progress, goals and reflections'
                   : 'Class ${student.className ?? '—'} · ID ${student.accountId ?? '—'}',
               icon: Icons.school_outlined,
               onTap: () {

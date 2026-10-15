@@ -26,8 +26,6 @@ function toClientNote(note) {
     customText: note.customText ?? '',
     sections: note.sections ?? [],
     createdAt: note.createdAt,
-    isPrivate: note.isPrivate,
-    sharedWithParents: note.sharedWithParents === true,
   };
 }
 
@@ -37,9 +35,7 @@ export async function listJournalNotes(request, response) {
   const limit = Number.isInteger(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 50)
     : 20;
-  // The default journal endpoint is owner-only. A separate peer endpoint
-  // checks an accepted student connection before returning shared reflections.
-  const filter = { owner: request.auth.sub, isPrivate: true };
+  const filter = { owner: request.auth.sub };
   if (request.query.cursor) {
     let cursor;
     try {
@@ -88,7 +84,6 @@ export async function getOwnJournalNoteDetail(request, response) {
   const note = await JournalNote.findOne({
     _id: request.params.noteId,
     owner: request.auth.sub,
-    isPrivate: true,
   }).lean();
   if (!note) throw createHttpError(404, 'This journal note could not be found.');
 
@@ -146,7 +141,7 @@ export async function listConnectedStudentJournalNotes(request, response) {
   const limit = Number.isInteger(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 50)
     : 20;
-  const filter = { owner: connectedStudent._id, isPrivate: true };
+  const filter = { owner: connectedStudent._id };
   if (request.query.cursor) {
     let cursor;
     try {
@@ -219,7 +214,6 @@ export async function createJournalNote(request, response) {
     ? request.body.customText.trim()
     : '';
   const rawSections = request.body?.sections ?? [];
-  const sharedWithParents = request.body?.sharedWithParents === true;
 
   if (!category || category.length > 80) {
     throw createHttpError(400, 'Choose a valid note category.');
@@ -282,8 +276,6 @@ export async function createJournalNote(request, response) {
     responses: rawResponses.map((value) => value.trim()),
     customText,
     sections,
-    isPrivate: true,
-    sharedWithParents,
   });
 
   const student = await User.findById(request.auth.sub)
@@ -293,10 +285,8 @@ export async function createJournalNote(request, response) {
   if (student?.assignedTeacher) {
     recipients.set(String(student.assignedTeacher), 'teacher');
   }
-  if (sharedWithParents) {
-    for (const parentId of student?.linkedParents ?? []) {
-      recipients.set(String(parentId), 'parent');
-    }
+  for (const parentId of student?.linkedParents ?? []) {
+    recipients.set(String(parentId), 'parent');
   }
   await createNotifications([...recipients].map(([recipient, role]) =>
     notificationEntry({
@@ -305,10 +295,10 @@ export async function createJournalNote(request, response) {
       actorName: student?.fullName ?? 'A student',
       actorRole: 'student',
       type: 'student_note_saved',
-      title: role === 'teacher' ? 'New student reflection' : 'New shared reflection',
+      title: role === 'teacher' ? 'New student reflection' : 'New student reflection',
       body: role === 'teacher'
         ? `${student?.fullName ?? 'A student'} saved a reflection.`
-        : `${student?.fullName ?? 'Your child'} shared a new reflection with you.`,
+        : `${student?.fullName ?? 'Your child'} added a new reflection.`,
       payload: {
         studentId: String(request.auth.sub),
         noteId: String(note._id),

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { GrowthConnectionInvite } from '../../models/growth-connection-invite.js';
 import { User } from '../../models/users.js';
 import { buildGrowthSummary, saveGrowthFeedback } from '../../services/growth/growth.service.js';
+import { listStudentGoals } from '../../services/growth/goals.service.js';
 import { createHttpError } from '../auth/auth.helpers.js';
 import {
   createNotifications,
@@ -68,6 +69,21 @@ export async function getOwnGrowthSummary(request, response) {
     success: true,
     data: await buildGrowthSummary(student),
   });
+}
+
+export async function getOwnGoals(request, response) {
+  requireStudent(request);
+  const student = await User.findById(request.auth.sub).select('assignedTeacher');
+  if (!student) throw createHttpError(404, 'Student account was not found.');
+  if (!student.assignedTeacher) {
+    return response.json({ success: true, data: { goals: [] } });
+  }
+  const goals = await listStudentGoals(
+    student,
+    student.assignedTeacher,
+    request.query.status,
+  );
+  return response.json({ success: true, data: { goals } });
 }
 
 export async function getOwnConnections(request, response) {

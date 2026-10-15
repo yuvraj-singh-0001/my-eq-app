@@ -1186,7 +1186,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       const SizedBox(height: 4),
       const Text(
-        'Your notes stay private. Dates and topics are shown here.',
+        'Your notes appear here with dates and topics for your connected support team.',
         style: TextStyle(color: Color(0xFF78859B), fontSize: 11),
       ),
       const SizedBox(height: 10),
