@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     className: { type: String, enum: ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'] },
     section: { type: String, enum: ['A', 'B', 'C', 'D'], default: null },
     gender: { type: String, enum: ['Male', 'Female', 'Other'], default: null },
+    parentType: { type: String, enum: ['Father', 'Mother', 'Guardian', 'Other'], default: null },
     studentId: { type: String, unique: true, sparse: true },
     teacherId: { type: String, unique: true, sparse: true },
     parentId: { type: String, unique: true, sparse: true },

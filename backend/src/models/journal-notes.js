@@ -37,13 +37,10 @@ const journalNoteSchema = new mongoose.Schema(
         message: 'A note can contain up to 10 reflection sections.',
       },
     },
-    isPrivate: { type: Boolean, default: true },
-    sharedWithParents: { type: Boolean, default: false },
   },
   { timestamps: true, versionKey: false },
 );
 
 journalNoteSchema.index({ owner: 1, createdAt: -1, _id: -1 });
-journalNoteSchema.index({ owner: 1, sharedWithParents: 1, createdAt: -1 });
 
 export const JournalNote = mongoose.model('JournalNotes', journalNoteSchema);
