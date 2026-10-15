@@ -79,6 +79,7 @@ export function publicUser(user) {
     className: user.className,
     section: user.section,
     gender: user.gender,
+    parentType: user.parentType,
     username: user.username,
     role: user.role,
     schoolName: user.schoolName,

@@ -53,7 +53,7 @@ class SharedReflectionOverview extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Overview from shared notes',
+                  'Overview from reflections',
                   style: TextStyle(
                     color: const Color(0xFF182D4C),
                     fontSize: compact ? 13 : 15,
@@ -117,7 +117,7 @@ class SharedReflectionOverview extends StatelessWidget {
           ],
           const SizedBox(height: 7),
           Text(
-            'Based only on reflections your child chose to share.',
+            'Based on your child’s saved reflections.',
             style: TextStyle(
               color: const Color(0xFF8793A4),
               fontSize: compact ? 9 : 10,
@@ -129,7 +129,7 @@ class SharedReflectionOverview extends StatelessWidget {
   }
 
   String _summary({required String? topMood, required String? topCategory}) {
-    final parts = <String>['${notes.length} shared reflections'];
+    final parts = <String>['${notes.length} reflections'];
     if (topCategory != null) parts.add('most often about $topCategory');
     if (topMood != null) parts.add('with $topMood selected most often');
     return '${parts.join(', ')}. This is a simple pattern from the entries, not a diagnosis.';

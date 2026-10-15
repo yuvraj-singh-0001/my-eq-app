@@ -10,6 +10,8 @@ import 'self_regulation_content.dart';
 import 'self_regulation_topics_page.dart';
 import 'journal_note_detail_page.dart';
 import '../../../notifications/presentation/widgets/notification_bell.dart';
+import '../../../student/presentation/pages/student_growth_profile_page.dart';
+import '../../../student/presentation/pages/student_goals_page.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key, required this.result});
@@ -267,12 +269,28 @@ class _JournalPageState extends State<JournalPage> {
       _selectedMood = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your private note was saved.')),
+      const SnackBar(content: Text('Your reflection was saved for your support team.')),
     );
   }
 
   void _onNavigation(int index) {
     if (index == 1) return;
+    if (index == 2) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => StudentGrowthProfilePage(result: widget.result),
+        ),
+      );
+      return;
+    }
+    if (index == 3) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => StudentGoalsPage(result: widget.result),
+        ),
+      );
+      return;
+    }
     if (index == 4) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -581,7 +599,7 @@ class _JournalPageState extends State<JournalPage> {
               ),
               SizedBox(width: 4),
               Text(
-                'Private Mode',
+                'Your reflection space',
                 style: TextStyle(
                   color: Color(0xFF167F6C),
                   fontSize: 10,

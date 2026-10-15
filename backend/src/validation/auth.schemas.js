@@ -19,6 +19,7 @@ export const signupSchema = z.object({
   className: z.enum(['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5']).optional().nullable(),
   section: z.enum(['A', 'B', 'C', 'D']).optional().nullable(),
   gender: z.enum(['Male', 'Female', 'Other']).optional().nullable(),
+  parentType: z.enum(['Father', 'Mother', 'Guardian', 'Other']).optional().nullable(),
   father: z.object({
     name: z.string().trim().max(100).optional().or(z.literal('')),
     mobileNumber: optionalMobileSchema,
@@ -68,6 +69,7 @@ export const profileUpdateSchema = z.object({
     .optional().nullable(),
   section: z.enum(['A', 'B', 'C', 'D']).optional().nullable(),
   gender: z.enum(['Male', 'Female', 'Other']).optional().nullable(),
+  parentType: z.enum(['Father', 'Mother', 'Guardian', 'Other']).optional().nullable(),
   schoolName: z.string().trim().max(150).optional().or(z.literal('')),
   teachingSubject: z.string().trim().max(80).optional().or(z.literal('')),
   father: profileContactSchema.optional().default({}),

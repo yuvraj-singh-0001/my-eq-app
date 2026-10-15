@@ -9,6 +9,7 @@ import 'student_reflections_page.dart';
 import 'goals_progress_page.dart';
 import '../services/teacher_student_contact.dart';
 import 'teacher_messages_page.dart';
+import '../../../student/presentation/widgets/career_insights_card.dart';
 
 class TeacherStudentProgressPage extends StatefulWidget {
   const TeacherStudentProgressPage({
@@ -318,6 +319,81 @@ class _TeacherStudentProgressPageState
     );
   }
 
+  Future<void> _showSupportPlan() async {
+    final careerNotes = _notes
+        .where((item) => item.category == 'Career Discovery')
+        .toList(growable: false);
+    final note = careerNotes.isEmpty ? null : careerNotes.first;
+    if (note == null) return;
+
+    String? value(String prefix) {
+      for (final line in note.text.split('\n')) {
+        if (line.startsWith(prefix)) {
+          final result = line.substring(prefix.length).trim();
+          if (result.isNotEmpty) return result;
+        }
+      }
+      return null;
+    }
+
+    final subject = value('SUBJECT I AM FIGURING OUT:') ?? 'the focus subject';
+    final interest = value('WHAT I ENJOY:') ?? 'the student’s interests';
+    final strength = value('WHAT I FEEL I CAN DO:') ?? 'the student’s strengths';
+    final studentId = widget.student.accountId;
+    final token = widget.result.token;
+    if (studentId == null ||
+        studentId.isEmpty ||
+        token == null ||
+        token.isEmpty) {
+      _showUnavailable('Support plan');
+      return;
+    }
+
+    final plan = _SupportPlan(
+      title: 'Build confidence in $subject',
+      description:
+          'Use the student’s interest in $interest and strength in $strength to make $subject feel more approachable.',
+      steps: [
+        'Start with a 10-minute conversation about which part feels difficult.',
+        'Connect one small $subject activity with something the student enjoys.',
+        'Celebrate effort and explain the next step without comparison.',
+        'Review the student’s comfort and progress after two weeks.',
+      ],
+    );
+
+    final shouldSave = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFFF8FAFC),
+      builder: (_) => _SupportPlanSheet(plan: plan),
+    );
+    if (shouldSave != true || !mounted) return;
+
+    try {
+      await AuthApi.createTeacherStudentGoal(
+        token: token,
+        studentId: studentId,
+        title: plan.title,
+        category: 'Study Habits',
+        description: plan.description,
+        teacherNote: plan.steps.join('\n'),
+        startDate: DateTime.now(),
+        reviewDate: DateTime.now().add(const Duration(days: 14)),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Support plan added to student goals.')),
+      );
+    } on AuthApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    }
+  }
+
   void _onNavigation(int index) {
     switch (index) {
       case 0:
@@ -490,6 +566,11 @@ class _TeacherStudentProgressPageState
         recentActivity: recentActivity,
       ),
       const SizedBox(height: 14),
+      CareerInsightsCard(
+        notes: _notes,
+        onCreateSupportPlan: _showSupportPlan,
+      ),
+      const SizedBox(height: 14),
       _MoodTrendCard(
         overview: _reflectionOverview,
         days: _trendDays,
@@ -570,6 +651,144 @@ class _TeacherStudentProgressPageState
       ],
     ];
   }
+}
+
+class _SupportPlan {
+  const _SupportPlan({
+    required this.title,
+    required this.description,
+    required this.steps,
+  });
+
+  final String title;
+  final String description;
+  final List<String> steps;
+}
+
+class _SupportPlanSheet extends StatelessWidget {
+  const _SupportPlanSheet({required this.plan});
+
+  final _SupportPlan plan;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE7FA),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Color(0xFF775CB2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Suggested Support Plan',
+                  style: TextStyle(
+                    color: Color(0xFF203454),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            plan.title,
+            style: const TextStyle(
+              color: Color(0xFF39285E),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            plan.description,
+            style: const TextStyle(
+              color: Color(0xFF65728E),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Simple next steps',
+            style: TextStyle(
+              color: Color(0xFF203454),
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < plan.steps.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: const Color(0xFFEDE7FA),
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: Color(0xFF775CB2),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      plan.steps[index],
+                      style: const TextStyle(
+                        color: Color(0xFF52627A),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(true),
+              icon: const Icon(Icons.add_task_rounded),
+              label: const Text('Add to Student Goals'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF149B78),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ProfileTabs extends StatelessWidget {
