@@ -62,6 +62,8 @@ class _SessionStartupState extends State<_SessionStartup> {
         studentId: profile.studentId,
         email: profile.email,
         username: profile.username,
+        parentType: profile.parentType,
+        gender: profile.gender,
         token: token,
       );
       await AuthSession.save(result);

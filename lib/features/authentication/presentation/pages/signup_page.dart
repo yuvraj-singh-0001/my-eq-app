@@ -38,6 +38,7 @@ class _SignupPageState extends State<SignupPage> {
   String? _className;
   String? _section;
   String? _gender;
+  String? _parentType;
   String? _assignedTeacher;
   bool _obscurePassword = true;
   bool _isSubmitting = false;
@@ -115,6 +116,7 @@ class _SignupPageState extends State<SignupPage> {
           className: _className,
           section: _section,
           gender: _gender,
+          parentType: _parentType,
           fatherName: _fatherNameController.text,
           fatherEmail: _fatherEmailController.text,
           fatherMobileNumber: _fatherMobileController.text,
@@ -194,6 +196,7 @@ class _SignupPageState extends State<SignupPage> {
     email: _emailController.text.trim(),
     username: _usernameController.text.trim(),
     token: _authToken,
+    parentType: _parentType,
   );
 
   @override
@@ -261,6 +264,7 @@ class _SignupPageState extends State<SignupPage> {
                                   _teachingSubjectController,
                               section: _section,
                               gender: _gender,
+                              parentType: _parentType,
                               assignedTeacher: _assignedTeacher,
                               obscurePassword: _obscurePassword,
                               isSubmitting: _isSubmitting,
@@ -271,6 +275,8 @@ class _SignupPageState extends State<SignupPage> {
                                   setState(() => _section = value),
                               onGenderChanged: (value) =>
                                   setState(() => _gender = value),
+                              onParentTypeChanged: (value) =>
+                                  setState(() => _parentType = value),
                               onTeacherChanged: (value) =>
                                   setState(() => _assignedTeacher = value),
                               onPasswordVisibilityChanged: () => setState(
@@ -579,12 +585,14 @@ class _SignupFormPanel extends StatelessWidget {
     required this.teachingSubjectController,
     required this.section,
     required this.gender,
+    required this.parentType,
     required this.assignedTeacher,
     required this.obscurePassword,
     required this.isSubmitting,
     required this.onSectionChanged,
     required this.onClassChanged,
     required this.onGenderChanged,
+    required this.onParentTypeChanged,
     required this.onTeacherChanged,
     required this.onPasswordVisibilityChanged,
     required this.onUsernameErrorChanged,
@@ -612,12 +620,14 @@ class _SignupFormPanel extends StatelessWidget {
   final TextEditingController teachingSubjectController;
   final String? section;
   final String? gender;
+  final String? parentType;
   final String? assignedTeacher;
   final bool obscurePassword;
   final bool isSubmitting;
   final ValueChanged<String?> onSectionChanged;
   final ValueChanged<String?> onClassChanged;
   final ValueChanged<String?> onGenderChanged;
+  final ValueChanged<String?> onParentTypeChanged;
   final ValueChanged<String?> onTeacherChanged;
   final VoidCallback onPasswordVisibilityChanged;
   final VoidCallback onUsernameErrorChanged;
@@ -822,6 +832,25 @@ class _SignupFormPanel extends StatelessWidget {
       inputFormatters: const [_CapitalizeWordsFormatter()],
       requiredField: true,
       validator: _requiredValidator,
+    ),
+    const SizedBox(height: 12),
+    _SignupDropdown(
+      label: 'How should we address you?',
+      value: parentType,
+      hint: 'Choose Father, Mother or Guardian',
+      items: const ['Father', 'Mother', 'Guardian', 'Other'],
+      onChanged: onParentTypeChanged,
+      icon: Icons.family_restroom_outlined,
+      requiredField: true,
+    ),
+    const SizedBox(height: 12),
+    _SignupDropdown(
+      label: 'Gender',
+      value: gender,
+      hint: 'Select gender',
+      items: const ['Male', 'Female', 'Other'],
+      onChanged: onGenderChanged,
+      icon: Icons.wc_outlined,
     ),
     const SizedBox(height: 12),
     _SignupInput(

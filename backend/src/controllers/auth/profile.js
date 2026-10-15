@@ -23,6 +23,7 @@ export async function updateOwnProfile(request, response) {
   user.mobileNumber = data.mobileNumber;
   user.username = data.username.trim().toLowerCase();
   user.gender = data.gender ?? null;
+  user.parentType = data.parentType ?? null;
   if (user.role === 'student' || user.role === 'teacher') {
     user.schoolName = data.schoolName?.trim() || null;
   }

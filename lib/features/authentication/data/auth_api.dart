@@ -33,6 +33,8 @@ class LoginResult {
     this.studentId,
     this.email,
     this.username,
+    this.parentType,
+    this.gender,
     this.token,
   });
 
@@ -43,6 +45,8 @@ class LoginResult {
   final String? studentId;
   final String? email;
   final String? username;
+  final String? parentType;
+  final String? gender;
   final String? token;
 }
 
@@ -111,6 +115,7 @@ class UserProfileData {
     this.className,
     this.section,
     this.gender,
+    this.parentType,
     this.schoolName,
     this.teachingSubject,
     this.fatherName,
@@ -134,6 +139,7 @@ class UserProfileData {
   final String? className;
   final String? section;
   final String? gender;
+  final String? parentType;
   final String? schoolName;
   final String? teachingSubject;
   final String? fatherName;
@@ -160,6 +166,7 @@ class UserProfileData {
       className: json['className'] as String?,
       section: json['section'] as String?,
       gender: json['gender'] as String?,
+      parentType: json['parentType'] as String?,
       schoolName: json['schoolName'] as String?,
       teachingSubject: json['teachingSubject'] as String?,
       fatherName: father['name'] as String?,
@@ -1188,6 +1195,7 @@ class AuthApi {
     required String? className,
     required String? section,
     required String? gender,
+    String? parentType,
     required String fatherName,
     required String fatherEmail,
     required String fatherMobileNumber,
@@ -1214,6 +1222,7 @@ class AuthApi {
               'teachingSubject': teachingSubject,
               'section': section,
               'gender': gender,
+              'parentType': parentType,
               'father': {
                 'name': fatherName.trim(),
                 'email': fatherEmail.trim(),
@@ -1309,6 +1318,8 @@ class AuthApi {
         studentId: user['studentId'] as String?,
         email: user['email'] as String?,
         username: user['username'] as String?,
+        parentType: user['parentType'] as String?,
+        gender: user['gender'] as String?,
         token: body['data']?['token'] as String?,
       );
     } on AuthApiException {
